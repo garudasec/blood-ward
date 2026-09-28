@@ -27,6 +27,10 @@ html {
   scroll-behavior: smooth;
 }
 
+[id] {
+  scroll-margin-top: 6rem;
+}
+
 body {
   font-family: "Inter", system-ui, sans-serif;
   background: #0d0d0f;
@@ -39,6 +43,30 @@ body {
 #root {
   width: 100%;
   min-height: 100svh;
+}
+
+/* =============================
+   BLOODWARD CONTAINER SYSTEM
+   ============================= */
+.bw-container {
+  width: 100%;
+  max-width: 1320px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+@media (min-width: 640px) {
+  .bw-container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+@media (min-width: 1024px) {
+  .bw-container {
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+  }
 }
 
 /* =============================
@@ -79,14 +107,14 @@ body {
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #f8f7f4 0%, #c0392b 100%);
+  background: linear-gradient(135deg, #f8f7f4 0%, #e74c3c 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .gradient-text-subtle {
-  background: linear-gradient(135deg, #f8f7f4 20%, #9ca3af 100%);
+  background: linear-gradient(135deg, #ffffff 20%, #d1d5db 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -96,11 +124,11 @@ body {
    GLOW EFFECTS
    ============================= */
 .glow-crimson {
-  box-shadow: 0 0 40px rgba(192, 57, 43, 0.3), 0 0 80px rgba(192, 57, 43, 0.15);
+  box-shadow: 0 0 40px rgba(192, 57, 43, 0.35), 0 0 80px rgba(192, 57, 43, 0.18);
 }
 
 .glow-crimson-sm {
-  box-shadow: 0 0 20px rgba(192, 57, 43, 0.25), 0 0 40px rgba(192, 57, 43, 0.1);
+  box-shadow: 0 0 20px rgba(192, 57, 43, 0.28), 0 0 40px rgba(192, 57, 43, 0.12);
 }
 
 .text-glow {
@@ -118,227 +146,51 @@ body {
    CUSTOM SCROLLBAR
    ============================= */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 ::-webkit-scrollbar-track {
   background: #0d0d0f;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(192, 57, 43, 0.4);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(192, 57, 43, 0.7);
+  background: rgba(192, 57, 43, 0.5);
 }
 
 /* =============================
-   ANIMATIONS
-   ============================= */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-12px); }
-}
-
-@keyframes float-delayed {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-8px) rotate(5deg); }
-}
-
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(192, 57, 43, 0.3), 0 0 40px rgba(192, 57, 43, 0.1); }
-  50% { box-shadow: 0 0 40px rgba(192, 57, 43, 0.5), 0 0 80px rgba(192, 57, 43, 0.2); }
-}
-
-@keyframes orbit {
-  from { transform: rotate(0deg) translateX(120px) rotate(0deg); }
-  to { transform: rotate(360deg) translateX(120px) rotate(-360deg); }
-}
-
-@keyframes orbit-reverse {
-  from { transform: rotate(360deg) translateX(90px) rotate(-360deg); }
-  to { transform: rotate(0deg) translateX(90px) rotate(0deg); }
-}
-
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-@keyframes ping-slow {
-  75%, 100% { transform: scale(2); opacity: 0; }
-}
-
-@keyframes rotate-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes spin-slow-reverse {
-  from { transform: rotate(360deg); }
-  to { transform: rotate(0deg); }
-}
-
-@keyframes blob-morph {
-  0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
-  25% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
-  50% { border-radius: 50% 60% 30% 60% / 30% 60% 70% 40%; }
-  75% { border-radius: 60% 30% 60% 40% / 70% 50% 30% 60%; }
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-float-delayed {
-  animation: float-delayed 8s ease-in-out infinite 2s;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
-.animate-slide-up {
-  animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-fade-in {
-  animation: fade-in 1s ease-out both;
-}
-
-.animate-rotate-slow {
-  animation: rotate-slow 20s linear infinite;
-}
-
-.animate-spin-slow-reverse {
-  animation: spin-slow-reverse 15s linear infinite;
-}
-
-.animate-blob-morph {
-  animation: blob-morph 8s ease-in-out infinite;
-}
-
-.delay-100 { animation-delay: 0.1s; }
-.delay-200 { animation-delay: 0.2s; }
-.delay-300 { animation-delay: 0.3s; }
-.delay-400 { animation-delay: 0.4s; }
-.delay-500 { animation-delay: 0.5s; }
-.delay-600 { animation-delay: 0.6s; }
-.delay-700 { animation-delay: 0.7s; }
-.delay-800 { animation-delay: 0.8s; }
-
-/* =============================
-   REDUCED MOTION
-   ============================= */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* =============================
-   AUTH LAYOUT
+   FORM INPUTS
    ============================= */
 .auth-input {
   width: 100%;
+  padding: 12px 16px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  padding: 13px 16px;
   color: #f8f7f4;
-  font-size: 15px;
-  font-family: "Inter", system-ui, sans-serif;
+  font-size: 14px;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-
-.auth-input::placeholder {
-  color: rgba(255, 255, 255, 0.25);
-}
-
-.auth-input:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .auth-input:focus {
   border-color: rgba(192, 57, 43, 0.55);
-  background: rgba(255, 255, 255, 0.06);
   box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12);
 }
 
-.auth-input.error {
-  border-color: rgba(239, 68, 68, 0.6);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+.auth-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
 }
 
-.auth-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Blood group selector */
-.blood-group-btn {
-  padding: 10px 6px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.5);
-  font-family: "Outfit", system-ui, sans-serif;
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  text-align: center;
-}
-
-.blood-group-btn:hover {
-  border-color: rgba(192, 57, 43, 0.4);
-  color: #f8f7f4;
-  background: rgba(192, 57, 43, 0.08);
-}
-
-.blood-group-btn.selected {
-  background: linear-gradient(135deg, #c0392b 0%, #8b1a10 100%);
-  border-color: #c0392b;
-  color: #fff;
-  box-shadow: 0 0 16px rgba(192, 57, 43, 0.35);
-}
-
-/* Password strength */
-.strength-bar {
-  height: 3px;
-  border-radius: 2px;
-  transition: all 0.3s ease;
-}
-
-/* Focus ring for accessibility */
-.focus-ring:focus-visible {
-  outline: 2px solid rgba(192, 57, 43, 0.7);
-  outline-offset: 2px;
-}
-
-/* Auth form select */
 .auth-select {
   width: 100%;
+  padding: 12px 16px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  padding: 13px 16px;
   color: #f8f7f4;
-  font-size: 15px;
-  font-family: "Inter", system-ui, sans-serif;
+  font-size: 14px;
   outline: none;
   appearance: none;
   cursor: pointer;

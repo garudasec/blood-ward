@@ -1,107 +1,51 @@
-const MOCK_DONORS = [
-  { group: "O+", name: "Verified Donor", distance: "1.2 km", available: true, rating: 4 },
-  { group: "O+", name: "Verified Donor", distance: "2.7 km", available: true, rating: 5 },
-  { group: "O+", name: "Verified Donor", distance: "3.2 km", available: false, rating: 3 },
-];
-
-const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+import { Link } from "react-router-dom";
 
 function SearchMockUI() {
   return (
-    <div className="relative w-full max-w-md mx-auto lg:mx-0 lg:ml-auto" aria-hidden="true">
-      {/* Search panel */}
-      <div className="glass-strong rounded-3xl p-6 border border-white/10" style={{
-        boxShadow: "0 40px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)",
-      }}>
-        {/* Header */}
-        <div className="mb-5">
-          <div className="text-sm font-semibold text-white/60 mb-3">Search Parameters</div>
+    <div className="relative w-full max-w-md mx-auto">
+      <div className="glass-strong rounded-3xl p-6 border border-white/10 shadow-2xl space-y-4">
+        <div className="text-xs font-semibold text-white/50 uppercase tracking-wider">Search Parameters</div>
 
-          {/* Blood group selector */}
-          <div className="mb-4">
-            <div className="text-xs text-white/40 mb-2 font-medium">Blood Group</div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {BLOOD_GROUPS.map((g) => (
-                <div
-                  key={g}
-                  className={`py-2 rounded-xl text-xs font-bold text-center cursor-pointer transition-all duration-200 ${
-                    g === "O+"
-                      ? "gradient-crimson text-white glow-crimson-sm"
-                      : "glass text-white/40 border border-white/06 hover:border-white/15 hover:text-white/70"
-                  }`}
-                >
-                  {g}
-                </div>
-              ))}
+        {/* Group selector pills */}
+        <div className="grid grid-cols-4 gap-2">
+          {["A+", "B+", "O+", "O-"].map((g) => (
+            <div
+              key={g}
+              className={"py-2 rounded-xl text-xs font-bold text-center cursor-pointer transition-all " + (
+                g === "O-"
+                  ? "gradient-crimson text-white glow-crimson-sm shadow-md"
+                  : "glass text-white/40 border border-white/06"
+              )}
+            >
+              {g}
             </div>
-          </div>
-
-          {/* Location input mock */}
-          <div className="glass rounded-xl px-4 py-3 flex items-center gap-3 border border-white/08 mb-4">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#c0392b] flex-shrink-0">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/>
-            </svg>
-            <span className="text-sm text-white/40">Using your current location</span>
-            <div className="ml-auto w-2 h-2 rounded-full bg-green-400" />
-          </div>
-
-          {/* Search button */}
-          <div className="w-full py-3 rounded-xl gradient-crimson text-center text-sm font-semibold text-white cursor-pointer glow-crimson-sm">
-            Find Nearby Donors
-          </div>
+          ))}
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-white/07 mb-5" />
+        {/* Location input mock */}
+        <div className="glass rounded-xl px-4 py-3 flex items-center justify-between border border-white/08 text-xs text-white/70">
+          <span>📍 Current Location (Mumbai, MH)</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+        </div>
 
-        {/* Results */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-semibold text-white/50">Results</div>
-            <div className="text-xs text-[#e74c3c] font-medium">3 found nearby</div>
+        {/* Search Results */}
+        <div className="pt-2 border-t border-white/08 space-y-2">
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-white/50">Matching Donors</span>
+            <span className="text-emerald-400 font-semibold">3 Donors Available</span>
           </div>
 
-          <div className="space-y-2.5">
-            {MOCK_DONORS.map((donor, i) => (
-              <div
-                key={i}
-                className="glass rounded-xl p-3.5 flex items-center gap-3 border border-white/06 hover:border-white/12 transition-all duration-200 cursor-pointer group"
-              >
-                {/* Blood group badge */}
-                <div className="w-11 h-11 rounded-xl gradient-crimson flex items-center justify-center flex-shrink-0 glow-crimson-sm">
-                  <span className="font-display font-black text-sm text-white">{donor.group}</span>
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-white/80 group-hover:text-white transition-colors">{donor.name}</div>
-                  <div className="text-xs text-white/35 mt-0.5 flex items-center gap-2">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-white/30">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                    </svg>
-                    {donor.distance}
-                  </div>
-                </div>
-
-                {/* Availability */}
-                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg flex-shrink-0 ${
-                  donor.available
-                    ? "bg-green-400/10 text-green-400 border border-green-400/20"
-                    : "bg-white/05 text-white/30 border border-white/08"
-                }`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${donor.available ? "bg-green-400" : "bg-white/30"}`} />
-                  <span className="text-[10px] font-semibold">{donor.available ? "Available" : "Busy"}</span>
-                </div>
+          <div className="glass rounded-xl p-3 flex items-center justify-between border border-white/06">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl gradient-crimson text-white font-bold text-xs flex items-center justify-center">O-</div>
+              <div>
+                <div className="text-xs font-semibold text-white">Ananya R.</div>
+                <div className="text-[10px] text-white/40">1.8 km away · Bandra</div>
               </div>
-            ))}
+            </div>
+            <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Available</span>
           </div>
         </div>
-      </div>
-
-      {/* Floating distance badge */}
-      <div className="absolute -bottom-5 -left-5 glass rounded-2xl px-4 py-2.5 border border-white/10 animate-float" style={{ animationDuration: "6s" }}>
-        <div className="text-xs text-white/50 mb-0.5">Closest match</div>
-        <div className="font-display font-bold text-lg text-white">1.2 <span className="text-sm font-normal text-white/40">km</span></div>
       </div>
     </div>
   );
@@ -111,70 +55,56 @@ export default function RecipientSection() {
   return (
     <section
       id="recipient"
-      className="relative py-28 section-divider overflow-hidden"
+      className="scroll-mt-24 py-20 md:py-24 section-divider relative overflow-hidden"
       aria-labelledby="recipient-section-heading"
     >
-      {/* BG glow */}
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[500px] h-[500px] opacity-[0.07]" style={{
-        background: "radial-gradient(circle, #c0392b 0%, transparent 70%)",
-        filter: "blur(80px)",
-      }} aria-hidden="true" />
-
-      <div className="relative max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-
-          {/* Left — copy */}
+      <div className="bw-container relative">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          {/* Left Copy */}
           <div>
             <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 mb-6 border border-white/08">
               <div className="w-1.5 h-1.5 rounded-full bg-[#c0392b]" aria-hidden="true" />
-              <span className="text-xs font-medium text-white/50 uppercase tracking-widest">For Recipients</span>
+              <span className="text-xs font-semibold text-white/60 uppercase tracking-widest">For Recipients</span>
             </div>
 
             <h2
               id="recipient-section-heading"
-              className="font-display font-bold text-4xl md:text-5xl text-white mb-6 tracking-tight leading-tight"
+              className="font-display font-bold text-3xl md:text-5xl text-white mb-6 tracking-tight leading-tight"
             >
-              Find the right donor,<br />
-              <span className="gradient-text">closer to you.</span>
+              Find the right donor, closer to you.
             </h2>
 
-            <p className="text-white/50 text-lg mb-8 leading-relaxed">
-              BloodWard's location-aware search instantly surfaces compatible donors in your area. Filter by blood group, check real availability, and reach out securely.
+            <p className="text-white/60 text-base md:text-lg mb-8 leading-relaxed">
+              BloodWard's location-aware discovery engine surfaces compatible blood donors in your vicinity within seconds.
             </p>
 
-            <ul className="space-y-4 mb-10" role="list">
+            <ul className="space-y-3.5 mb-8" role="list">
               {[
-                "Select your required blood group",
-                "Automatically use your current location",
-                "See available donors sorted by distance",
-                "Send a secure request with one tap",
+                "Select required blood group with one tap",
+                "Automatic proximity distance sorting",
+                "Check verified donor availability state",
+                "Privacy-shielded request coordination",
               ].map((item, i) => (
-                <li key={i} className="flex items-center gap-3 text-sm text-white/60">
-                  <div className="w-5 h-5 rounded-full gradient-crimson flex items-center justify-center flex-shrink-0">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path d="M20 6L9 17l-5-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                <li key={i} className="flex items-center gap-3 text-sm text-white/70">
+                  <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center flex-shrink-0 text-emerald-400 font-bold text-xs">
+                    ✓
                   </div>
                   {item}
                 </li>
               ))}
             </ul>
 
-            <a
-              href="#register"
-              id="recipient-find-blood-cta"
-              className="inline-flex items-center gap-3 px-7 py-4 font-semibold text-white rounded-2xl gradient-crimson glow-crimson-sm hover:glow-crimson transition-all duration-300 hover:scale-105"
-              aria-label="Start finding blood donors"
+            <Link
+              to="/register/recipient"
+              className="inline-flex items-center gap-2.5 px-6 py-3.5 font-semibold text-white rounded-xl gradient-crimson glow-crimson-sm hover:glow-crimson transition-all duration-200 hover:scale-[1.02] text-sm sm:text-base"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/>
-              </svg>
               Find Blood Now
-            </a>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </Link>
           </div>
 
-          {/* Right — search UI mock */}
-          <div className="flex justify-center lg:justify-end" aria-hidden="true">
+          {/* Right Mock UI */}
+          <div>
             <SearchMockUI />
           </div>
         </div>
