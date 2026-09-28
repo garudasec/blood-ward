@@ -3,21 +3,21 @@ import { Link } from "react-router-dom";
 
 function BloodOrbVisual() {
   return (
-    <div className="relative w-full h-full min-h-[380px] lg:min-h-[480px] flex items-center justify-center">
-      {/* Outer Atmospheric Glow */}
+    <div className="relative w-full h-full min-h-[360px] sm:min-h-[420px] lg:min-h-[480px] flex items-center justify-center">
+      {/* Atmospheric Glow */}
       <div
         className="absolute w-72 h-72 sm:w-96 sm:h-96 rounded-full opacity-60 blur-3xl animate-pulse-glow"
         style={{
-          background: "radial-gradient(circle, rgba(231,76,60,0.4) 0%, rgba(192,57,43,0.15) 50%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(231,76,60,0.38) 0%, rgba(192,57,43,0.15) 50%, transparent 70%)",
         }}
       />
 
-      {/* Orbit Rings */}
+      {/* Concentric Orbit Rings */}
       <div className="absolute w-64 h-64 sm:w-80 sm:h-80 rounded-full border border-white/08 animate-auth-orbit" />
       <div className="absolute w-80 h-80 sm:w-[420px] sm:h-[420px] rounded-full border border-[#c0392b]/15 animate-auth-orbit-reverse" />
 
       {/* 3D Glass Sphere Core */}
-      <div className="relative w-56 h-56 sm:w-72 sm:h-72 rounded-full flex items-center justify-center animate-auth-float shadow-2xl">
+      <div className="relative w-52 h-52 sm:w-72 sm:h-72 rounded-full flex items-center justify-center animate-auth-float shadow-2xl">
         {/* Deep Core Glow */}
         <div
           className="absolute inset-0 rounded-full"
@@ -37,7 +37,7 @@ function BloodOrbVisual() {
 
         {/* Blood Drop Center Icon */}
         <div className="relative z-10 text-white opacity-95 filter drop-shadow-[0_0_20px_rgba(255,255,255,0.6)]">
-          <svg width="64" height="72" viewBox="0 0 18 20" fill="none">
+          <svg width="56" height="64" viewBox="0 0 18 20" fill="none">
             <path
               d="M9 0C9 0 0 7.5 0 12.5C0 17 4 20 9 20C14 20 18 17 18 12.5C18 7.5 9 0 9 0Z"
               fill="white"
@@ -47,9 +47,9 @@ function BloodOrbVisual() {
         </div>
       </div>
 
-      {/* Floating Blood Group Badges */}
-      <div className="absolute top-[12%] left-[8%] sm:left-[12%] animate-auth-float" style={{ animationDelay: "0s" }}>
-        <div className="glass rounded-xl px-3 py-2 border border-white/12 flex items-center gap-2.5 shadow-xl bg-[#121217]/80 backdrop-blur-md">
+      {/* Positioned Floating Blood Group Badges */}
+      <div className="absolute top-[10%] left-[6%] sm:left-[10%] animate-auth-float" style={{ animationDelay: "0s" }}>
+        <div className="glass rounded-xl px-3 py-2 border border-white/12 flex items-center gap-2.5 shadow-xl bg-[#121217]/85 backdrop-blur-md">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-600 to-rose-900 text-white font-bold text-xs flex items-center justify-center shadow-md">
             O-
           </div>
@@ -57,8 +57,8 @@ function BloodOrbVisual() {
         </div>
       </div>
 
-      <div className="absolute bottom-[18%] left-[5%] sm:left-[10%] animate-auth-float" style={{ animationDelay: "1.2s" }}>
-        <div className="glass rounded-xl px-3 py-2 border border-white/12 flex items-center gap-2.5 shadow-xl bg-[#121217]/80 backdrop-blur-md">
+      <div className="absolute bottom-[16%] left-[4%] sm:left-[8%] animate-auth-float" style={{ animationDelay: "1.2s" }}>
+        <div className="glass rounded-xl px-3 py-2 border border-white/12 flex items-center gap-2.5 shadow-xl bg-[#121217]/85 backdrop-blur-md">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-600 to-rose-900 text-white font-bold text-xs flex items-center justify-center shadow-md">
             A+
           </div>
@@ -66,15 +66,15 @@ function BloodOrbVisual() {
         </div>
       </div>
 
-      <div className="absolute top-[22%] right-[5%] sm:right-[10%] animate-auth-float" style={{ animationDelay: "2.1s" }}>
-        <div className="glass rounded-xl px-3 py-2 border border-emerald-500/25 flex items-center gap-2 shadow-xl bg-[#121217]/80 backdrop-blur-md">
+      <div className="absolute top-[18%] right-[4%] sm:right-[8%] animate-auth-float" style={{ animationDelay: "2.1s" }}>
+        <div className="glass rounded-xl px-3 py-2 border border-emerald-500/25 flex items-center gap-2 shadow-xl bg-[#121217]/85 backdrop-blur-md">
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-xs font-semibold text-emerald-300">Ready to Donate</span>
         </div>
       </div>
 
-      <div className="absolute bottom-[24%] right-[8%] sm:right-[14%] animate-auth-float" style={{ animationDelay: "0.8s" }}>
-        <div className="glass rounded-xl px-3 py-2 border border-white/12 flex items-center gap-2.5 shadow-xl bg-[#121217]/80 backdrop-blur-md">
+      <div className="absolute bottom-[20%] right-[6%] sm:right-[12%] animate-auth-float" style={{ animationDelay: "0.8s" }}>
+        <div className="glass rounded-xl px-3 py-2 border border-white/12 flex items-center gap-2.5 shadow-xl bg-[#121217]/85 backdrop-blur-md">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-600 to-rose-900 text-white font-bold text-xs flex items-center justify-center shadow-md">
             B+
           </div>
@@ -96,7 +96,7 @@ export default function Hero() {
   return (
     <section
       id="home"
-      className="relative min-h-[90vh] flex items-center overflow-hidden pt-28 pb-16"
+      className="relative min-h-[88vh] flex items-center overflow-hidden pt-28 pb-16"
       aria-labelledby="hero-heading"
     >
       {/* Background Gradient */}
@@ -109,8 +109,8 @@ export default function Hero() {
       />
 
       <div className="bw-container relative w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
-          {/* Left Column — Text & CTAs */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-8 items-center">
+          {/* Left Column — Content Block */}
           <div className={"transition-all duration-700 " + (isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6")}>
             <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 mb-6 border border-[#c0392b]/25 bg-red-950/20">
               <div className="relative flex items-center justify-center">
@@ -124,21 +124,22 @@ export default function Hero() {
 
             <h1
               id="hero-heading"
-              className="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl tracking-tight mb-6 leading-[1.1]"
+              className="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl tracking-tight mb-5 leading-[1.1]"
             >
               <span className="gradient-text-subtle">Find Blood </span>
               <span className="text-white">When It </span>
               <span className="gradient-text">Matters Most.</span>
             </h1>
 
-            <p className="text-white/70 text-base sm:text-lg leading-relaxed max-w-lg mb-8 font-normal">
+            <p className="text-white/70 text-base sm:text-lg leading-relaxed max-w-xl mb-8 font-normal">
               BloodWard connects recipients with nearby available blood donors based on blood type and real-time location radius — fast, secure, and privacy-shielded.
             </p>
 
-            <div className="flex flex-wrap gap-4 mb-10">
+            {/* CTA Buttons Row — Flex Row on SM+, Stack on Mobile */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 mb-8">
               <Link
                 to="/register/recipient"
-                className="group inline-flex items-center gap-2.5 px-6 py-3.5 font-semibold text-white rounded-xl gradient-crimson glow-crimson-sm hover:glow-crimson transition-all duration-200 hover:scale-[1.02] text-sm sm:text-base"
+                className="group inline-flex items-center justify-center gap-2.5 h-12 sm:h-13 px-7 font-semibold text-white rounded-xl gradient-crimson glow-crimson-sm hover:glow-crimson transition-all duration-200 hover:scale-[1.02] text-sm sm:text-base flex-shrink-0"
                 aria-label="Find a blood donor near you"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -152,7 +153,7 @@ export default function Hero() {
 
               <Link
                 to="/register/donor"
-                className="group inline-flex items-center gap-2.5 px-6 py-3.5 font-semibold text-white/90 hover:text-white rounded-xl glass border border-white/12 hover:border-white/25 transition-all duration-200 hover:scale-[1.02] text-sm sm:text-base"
+                className="group inline-flex items-center justify-center gap-2.5 h-12 sm:h-13 px-7 font-semibold text-white/90 hover:text-white rounded-xl glass border border-white/12 hover:border-white/25 transition-all duration-200 hover:scale-[1.02] text-sm sm:text-base flex-shrink-0"
                 aria-label="Register as a blood donor"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -162,6 +163,7 @@ export default function Hero() {
               </Link>
             </div>
 
+            {/* Trust Indicators Row */}
             <div className="flex flex-wrap items-center gap-6 text-xs sm:text-sm text-white/50 border-t border-white/08 pt-6">
               <div className="flex items-center gap-2">
                 <span className="text-emerald-400 font-bold">✓</span>
