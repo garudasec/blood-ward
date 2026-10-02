@@ -96,3 +96,42 @@ export const MOCK_DONOR_HISTORY = [
     notes: 'Request cancelled by recipient (fulfilled locally).',
   },
 ];
+
+export const MOCK_RECIPIENT_REQUESTS = [
+  {
+    id: 'req-301',
+    hospitalName: 'City General Hospital',
+    city: 'New York',
+    bloodGroup: 'A+',
+    unitsNeeded: 2,
+    urgency: 'Emergency',
+    status: 'Donor Accepted',
+    donorResponsesCount: 2,
+    acceptedDonors: [
+      { name: 'David Miller', phone: '+1 (555) 123-9876', bloodGroup: 'A+', distanceKm: 2.4 },
+      { name: 'Elena Rostova', phone: '+1 (555) 876-5432', bloodGroup: 'A+', distanceKm: 4.1 },
+    ],
+    requiredDate: 'Today, Immediate',
+    createdAt: '25 mins ago',
+  },
+  {
+    id: 'req-302',
+    hospitalName: 'Memorial Trauma Center',
+    city: 'New York',
+    bloodGroup: 'A+',
+    unitsNeeded: 1,
+    urgency: 'High',
+    status: 'Active',
+    donorResponsesCount: 0,
+    acceptedDonors: [],
+    requiredDate: 'Tomorrow Morning',
+    createdAt: '2 hours ago',
+  },
+];
+
+export const MOCK_RECIPIENT_STATS = {
+  totalRequests: 4,
+  activeRequests: 2,
+  donorsResponded: 2,
+  fulfilledCount: 2,
+};
