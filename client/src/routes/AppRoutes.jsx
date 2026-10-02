@@ -16,6 +16,7 @@ import DonorDashboardPage from '../pages/donor/DonorDashboardPage';
 import DonorProfilePage from '../pages/donor/DonorProfilePage';
 import DonorAvailabilityPage from '../pages/donor/DonorAvailabilityPage';
 import DonorRequestsPage from '../pages/donor/DonorRequestsPage';
+import DonorHistoryPage from '../pages/donor/DonorHistoryPage';
 
 import RecipientDashboardPage from '../pages/recipient/RecipientDashboardPage';
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
@@ -111,7 +112,7 @@ export default function AppRoutes() {
           <Route path="profile" element={<DonorProfilePage />} />
           <Route path="availability" element={<DonorAvailabilityPage />} />
           <Route path="requests" element={<DonorRequestsPage />} />
-          <Route path="history" element={<DonorDashboardPage />} />
+          <Route path="history" element={<DonorHistoryPage />} />
         </Route>
 
         {/* Protected Recipient Routes */}
