@@ -48,7 +48,7 @@ const runSuite = async () => {
   console.log('Test server running at ' + baseUrl);
 
   // Cleanup test users & requests
-  await User.deleteMany({ email: { $regex: 'test_p8@bloodward.test', $options: 'i' } });
+  await User.deleteMany({ email: { $regex: '_p8@bloodward.test', $options: 'i' } });
   await BloodRequest.deleteMany({ hospitalName: { $regex: 'Test Hospital P8', $options: 'i' } });
 
   const password = 'Password123!';
@@ -257,7 +257,7 @@ const runSuite = async () => {
     }),
   });
   const donorRoleForced = regDonorRes.data.user && regDonorRes.data.user.role === 'donor';
-  record('TEST 24', 'Public donor registration forces donor role', 201, regDonorRes.status, donorRoleForced);
+  console.log('TEST 24 Data:', regDonorRes.data); record('TEST 24', 'Public donor registration forces donor role', 201, regDonorRes.status, donorRoleForced);
 
   // 25. Public recipient registration cannot create admin role
   const regRecRes = await request('/api/auth/register/recipient', {
@@ -272,7 +272,7 @@ const runSuite = async () => {
     }),
   });
   const recipientRoleForced = regRecRes.data.user && regRecRes.data.user.role === 'recipient';
-  record('TEST 25', 'Public recipient registration forces recipient role', 201, regRecRes.status, recipientRoleForced);
+  console.log('TEST 25 Data:', regRecRes.data); record('TEST 25', 'Public recipient registration forces recipient role', 201, regRecRes.status, recipientRoleForced);
 
   // 26. Pagination works on admin lists
   const t26 = await request('/api/admin/users?page=1&limit=2', { headers: { Cookie: adminCookie } });
