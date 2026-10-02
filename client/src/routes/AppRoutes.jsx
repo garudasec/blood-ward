@@ -19,6 +19,7 @@ import DonorRequestsPage from '../pages/donor/DonorRequestsPage';
 import DonorHistoryPage from '../pages/donor/DonorHistoryPage';
 
 import RecipientDashboardPage from '../pages/recipient/RecipientDashboardPage';
+import RecipientProfilePage from '../pages/recipient/RecipientProfilePage';
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
 
 import ProtectedRoute from './ProtectedRoute';
@@ -130,7 +131,7 @@ export default function AppRoutes() {
           <Route path="donors" element={<RecipientDashboardPage />} />
           <Route path="requests/create" element={<RecipientDashboardPage />} />
           <Route path="requests" element={<RecipientDashboardPage />} />
-          <Route path="profile" element={<RecipientDashboardPage />} />
+          <Route path="profile" element={<RecipientProfilePage />} />
         </Route>
 
         {/* Protected Admin Routes */}
