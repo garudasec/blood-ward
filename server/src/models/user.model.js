@@ -109,6 +109,8 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.index({ location: '2dsphere' });
+userSchema.index({ role: 1, availability: 1, isBlocked: 1 });
+userSchema.index({ bloodGroup: 1 });
 
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
