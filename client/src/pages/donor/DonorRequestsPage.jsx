@@ -20,11 +20,10 @@ import StatusBadge from '../../components/common/StatusBadge';
 import Button from '../../components/common/Button';
 import DonorRequestCard from '../../components/donor/DonorRequestCard';
 import DonorRequestDetailModal from '../../components/donor/DonorRequestDetailModal';
-import { MOCK_DONOR_REQUESTS } from '../../constants/mockData';
 
 export default function DonorRequestsPage() {
   const { user } = useAuth();
-  const [requests, setRequests] = useState(MOCK_DONOR_REQUESTS);
+  const [requests, setRequests] = useState([]);
   const [acceptedRequests, setAcceptedRequests] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState('ALL');
@@ -61,7 +60,7 @@ export default function DonorRequestsPage() {
   const handleRefresh = () => {
     setIsLoading(true);
     setTimeout(() => {
-      setRequests(MOCK_DONOR_REQUESTS);
+      setRequests([]);
       setIsLoading(false);
     }, 400);
   };

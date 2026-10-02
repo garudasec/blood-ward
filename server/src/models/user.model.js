@@ -55,6 +55,12 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    gender: {
+      type: String,
+      enum: ['Male', 'Female', 'Other', 'Prefer not to say', ''],
+      default: '',
+      trim: true,
+    },
     profilePhoto: {
       type: String,
       default: '',
@@ -74,6 +80,11 @@ const userSchema = new mongoose.Schema(
     bloodGroup: {
       type: String,
       enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+    },
+    state: {
+      type: String,
+      default: '',
+      trim: true,
     },
     city: {
       type: String,

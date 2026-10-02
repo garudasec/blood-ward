@@ -18,11 +18,10 @@ import {
 import BloodGroupBadge from '../../components/common/BloodGroupBadge';
 import Button from '../../components/common/Button';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
-import { MOCK_ADMIN_DONORS_LIST } from '../../constants/mockData';
 import { BLOOD_GROUPS } from '../../constants/theme';
 
 export default function AdminDonorsPage() {
-  const [donors, setDonors] = useState(MOCK_ADMIN_DONORS_LIST);
+  const [donors, setDonors] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [bloodGroupFilter, setBloodGroupFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');

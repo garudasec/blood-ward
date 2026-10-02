@@ -18,12 +18,11 @@ import {
 import Button from '../../components/common/Button';
 import RecipientSummaryStats from '../../components/recipient/RecipientSummaryStats';
 import RecipientRequestSummaryCard from '../../components/recipient/RecipientRequestSummaryCard';
-import { MOCK_RECIPIENT_REQUESTS, MOCK_RECIPIENT_STATS } from '../../constants/mockData';
 
 export default function RecipientDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeRequests, setActiveRequests] = useState(MOCK_RECIPIENT_REQUESTS);
+  const [activeRequests, setActiveRequests] = useState([]);
 
   return (
     <div className="space-y-8 pb-12">
@@ -88,7 +87,7 @@ export default function RecipientDashboardPage() {
       </div>
 
       {/* 3. RECIPIENT SUMMARY STATS */}
-      <RecipientSummaryStats stats={MOCK_RECIPIENT_STATS} />
+      <RecipientSummaryStats stats={{ totalRequests: 0, activeRequests: 0, donorResponses: 0, fulfilledRequests: 0 }} />
 
       {/* 4. ACTIVE BLOOD REQUESTS SECTION */}
       <div className="space-y-4">
@@ -145,31 +144,25 @@ export default function RecipientDashboardPage() {
           <Clock className="w-4 h-4 text-slate-500" /> Recent Request Activity
         </h3>
 
-        <div className="space-y-3 text-xs">
-          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-3">
-            <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="font-bold text-slate-900">
-                Donor David Miller (A+) accepted Emergency Request #req-301
-              </p>
-              <p className="text-slate-500 text-[11px]">Phone contact unlocked • 20 mins ago</p>
-            </div>
+        {activeRequests.length === 0 ? (
+          <p className="text-xs text-slate-500 italic">No recent request activity recorded yet.</p>
+        ) : (
+          <div className="space-y-3 text-xs">
+            {activeRequests.map((req) => (
+              <div key={req.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-3">
+                <div className="p-2 bg-blue-100 text-blue-700 rounded-xl shrink-0">
+                  <PlusCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">
+                    Request #{req.id?.slice(-6) || "--"} at {req.hospitalName || "Hospital"}
+                  </p>
+                  <p className="text-slate-500 text-[11px]">Status: {req.status} • {req.createdAt || "Recently"}</p>
+                </div>
+              </div>
+            ))}
           </div>
-
-          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-3">
-            <div className="p-2 bg-blue-100 text-blue-700 rounded-xl shrink-0">
-              <PlusCircle className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="font-bold text-slate-900">
-                Created High Urgency Request #req-302 at Memorial Trauma Center
-              </p>
-              <p className="text-slate-500 text-[11px]">Broadcast active to 4 donors in radius • 2 hours ago</p>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -27,9 +27,9 @@ export const DISTANCE_OPTIONS = [
 ];
 
 export const USER_ROLES = {
-  ADMIN: "ADMIN",
-  DONOR: "DONOR",
-  RECIPIENT: "RECIPIENT",
+  ADMIN: "admin",
+  DONOR: "donor",
+  RECIPIENT: "recipient",
 };
 
 // Blood Group Compatibility Map
@@ -43,3 +43,5 @@ export const DONOR_COMPATIBILITY = {
   "AB-": ["AB-", "AB+"],
   "AB+": ["AB+"],
 };
+
+export const GENDER_OPTIONS = ['Male', 'Female', 'Other', 'Prefer not to say'];

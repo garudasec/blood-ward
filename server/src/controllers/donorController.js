@@ -4,6 +4,7 @@ import {
   isValidGeoCoordinates,
   isValidBloodGroup,
   isValidAvailability,
+  isValidGender,
   isValidPincode,
 } from '../utils/validators.js';
 import {
@@ -35,7 +36,7 @@ export const getDonorProfile = async (req, res, next) => {
  */
 export const updateDonorProfile = async (req, res, next) => {
   try {
-    const { fullName, phone, bloodGroup, city, pincode, location } = req.body;
+    const { fullName, phone, gender, bloodGroup, state, city, pincode, location } = req.body;
 
     // Explicit allowlist updates to prevent mass assignment
     if (fullName !== undefined) {
@@ -52,11 +53,25 @@ export const updateDonorProfile = async (req, res, next) => {
       req.user.phone = phone.trim();
     }
 
+    if (gender !== undefined) {
+      if (!isValidGender(gender)) {
+        return next(new AppError('Invalid gender value provided.', 400));
+      }
+      req.user.gender = typeof gender === 'string' ? gender.trim() : '';
+    }
+
     if (bloodGroup !== undefined) {
       if (!isValidBloodGroup(bloodGroup)) {
         return next(new AppError('Invalid blood group provided.', 400));
       }
       req.user.bloodGroup = bloodGroup;
+    }
+
+    if (state !== undefined) {
+      if (typeof state !== 'string') {
+        return next(new AppError('State must be a valid text string.', 400));
+      }
+      req.user.state = state.trim();
     }
 
     if (city !== undefined) {

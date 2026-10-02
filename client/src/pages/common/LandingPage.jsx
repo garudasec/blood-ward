@@ -24,7 +24,7 @@ export default function LandingPage() {
   return (
     <div className="space-y-20 pb-16">
       {/* 1. HERO SECTION */}
-      <section className="relative overflow-hidden bg-slate-900 text-white pt-16 pb-24 md:pt-24 md:pb-32">
+      <section id="home" className="relative overflow-hidden bg-slate-900 scroll-mt-24 text-white pt-16 pb-24 md:pt-24 md:pb-32">
         {/* Glow background effects */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full pointer-events-none opacity-30">
           <div className="absolute top-[-10%] left-[20%] w-96 h-96 bg-red-600 rounded-full blur-[120px]" />
@@ -149,7 +149,7 @@ export default function LandingPage() {
       </section>
 
       {/* 2. HOW IT WORKS SECTION */}
-      <section id="how-it-works" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="how-it-works" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-24">
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
           <h2 className="text-xs font-bold uppercase tracking-widest text-red-600">
             Streamlined Emergency Response
@@ -199,7 +199,7 @@ export default function LandingPage() {
       </section>
 
       {/* 3. KEY FEATURES SECTION */}
-      <section className="bg-slate-100/70 py-16">
+      <section id="about" className="bg-slate-100/70 py-16 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
@@ -276,7 +276,7 @@ export default function LandingPage() {
       </section>
 
       {/* 4. SECURITY & PRIVACY SECTION */}
-      <section id="security" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="privacy-security" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-24">
         <div className="bg-slate-900 text-white rounded-3xl p-8 sm:p-12 shadow-2xl relative overflow-hidden">
           <div className="relative z-10 max-w-3xl space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">

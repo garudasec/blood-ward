@@ -1,11 +1,32 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Droplet, Menu, X, LogIn } from 'lucide-react';
 import Button from './Button';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleNavClick = (e, targetId) => {
+    e.preventDefault();
+    setMobileMenuOpen(false);
+
+    if (location.pathname !== '/') {
+      navigate(`/#${targetId}`);
+      setTimeout(() => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    } else {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
@@ -28,18 +49,34 @@ export default function Navbar() {
 
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <Link to="/" className="hover:text-red-600 transition-colors">
+            <a
+              href="#home"
+              onClick={(e) => handleNavClick(e, 'home')}
+              className="hover:text-red-600 transition-colors cursor-pointer"
+            >
               Home
-            </Link>
-            <a href="#how-it-works" className="hover:text-red-600 transition-colors">
+            </a>
+            <a
+              href="#how-it-works"
+              onClick={(e) => handleNavClick(e, 'how-it-works')}
+              className="hover:text-red-600 transition-colors cursor-pointer"
+            >
               How It Works
             </a>
-            <a href="#security" className="hover:text-red-600 transition-colors">
+            <a
+              href="#privacy-security"
+              onClick={(e) => handleNavClick(e, 'privacy-security')}
+              className="hover:text-red-600 transition-colors cursor-pointer"
+            >
               Privacy & Security
             </a>
-            <Link to="/about" className="hover:text-red-600 transition-colors">
+            <a
+              href="#about"
+              onClick={(e) => handleNavClick(e, 'about')}
+              className="hover:text-red-600 transition-colors cursor-pointer"
+            >
               About
-            </Link>
+            </a>
           </nav>
 
           {/* Action CTAs */}
@@ -56,18 +93,10 @@ export default function Navbar() {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => navigate('/register/recipient')}
+              onClick={() => navigate('/login')}
               className="font-semibold"
             >
-              Find a Donor
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate('/register/donor')}
-              className="font-semibold"
-            >
-              Become a Donor
+              Get Started
             </Button>
           </div>
 
@@ -87,26 +116,33 @@ export default function Navbar() {
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-slate-200 bg-white px-4 pt-3 pb-6 space-y-3">
-          <Link
-            to="/"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-base font-medium text-slate-700 hover:text-red-600"
+          <a
+            href="#home"
+            onClick={(e) => handleNavClick(e, 'home')}
+            className="block py-2 text-base font-medium text-slate-700 hover:text-red-600 cursor-pointer"
           >
             Home
-          </Link>
+          </a>
           <a
             href="#how-it-works"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-base font-medium text-slate-700 hover:text-red-600"
+            onClick={(e) => handleNavClick(e, 'how-it-works')}
+            className="block py-2 text-base font-medium text-slate-700 hover:text-red-600 cursor-pointer"
           >
             How It Works
           </a>
           <a
-            href="#security"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-base font-medium text-slate-700 hover:text-red-600"
+            href="#privacy-security"
+            onClick={(e) => handleNavClick(e, 'privacy-security')}
+            className="block py-2 text-base font-medium text-slate-700 hover:text-red-600 cursor-pointer"
           >
             Privacy & Security
+          </a>
+          <a
+            href="#about"
+            onClick={(e) => handleNavClick(e, 'about')}
+            className="block py-2 text-base font-medium text-slate-700 hover:text-red-600 cursor-pointer"
+          >
+            About
           </a>
           <div className="pt-4 border-t border-slate-100 space-y-2">
             <Button
@@ -124,20 +160,10 @@ export default function Navbar() {
               className="w-full justify-center"
               onClick={() => {
                 setMobileMenuOpen(false);
-                navigate('/register/recipient');
+                navigate('/login');
               }}
             >
-              Find a Donor
-            </Button>
-            <Button
-              variant="secondary"
-              className="w-full justify-center"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                navigate('/register/donor');
-              }}
-            >
-              Become a Donor
+              Get Started
             </Button>
           </div>
         </div>

@@ -12,10 +12,9 @@ import {
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import AdminAuditDetailModal from '../../components/admin/AdminAuditDetailModal';
-import { MOCK_AUDIT_LOGS_FULL } from '../../constants/mockData';
 
 export default function AdminAuditLogsPage() {
-  const [logs, setLogs] = useState(MOCK_AUDIT_LOGS_FULL);
+  const [logs, setLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [selectedLogForModal, setSelectedLogForModal] = useState(null);

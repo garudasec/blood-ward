@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 80px;
+  }
   :root {
     --primary: 348 83% 47%;
     --primary-foreground: 0 0% 100%;

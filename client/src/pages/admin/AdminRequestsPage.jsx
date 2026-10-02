@@ -20,11 +20,10 @@ import StatusBadge from '../../components/common/StatusBadge';
 import Button from '../../components/common/Button';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import AdminRequestDetailModal from '../../components/admin/AdminRequestDetailModal';
-import { MOCK_ADMIN_REQUESTS_LIST } from '../../constants/mockData';
 import { REQUEST_STATUS } from '../../constants/theme';
 
 export default function AdminRequestsPage() {
-  const [requests, setRequests] = useState(MOCK_ADMIN_REQUESTS_LIST);
+  const [requests, setRequests] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');

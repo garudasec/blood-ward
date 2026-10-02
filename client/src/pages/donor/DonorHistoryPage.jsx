@@ -16,11 +16,10 @@ import {
 import BloodGroupBadge from '../../components/common/BloodGroupBadge';
 import StatusBadge from '../../components/common/StatusBadge';
 import Button from '../../components/common/Button';
-import { MOCK_DONOR_HISTORY } from '../../constants/mockData';
 
 export default function DonorHistoryPage() {
   const { user } = useAuth();
-  const [historyItems, setHistoryItems] = useState(MOCK_DONOR_HISTORY);
+  const [historyItems, setHistoryItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 

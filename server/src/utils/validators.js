@@ -1,5 +1,6 @@
 export const ALLOWED_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 export const ALLOWED_AVAILABILITY = ['available', 'not_available'];
+export const ALLOWED_GENDERS = ['Male', 'Female', 'Other', 'Prefer not to say'];
 
 export const isValidGeoCoordinates = (longitude, latitude) => {
   const lng = Number(longitude);
@@ -20,6 +21,11 @@ export const isValidBloodGroup = (bloodGroup) => {
 
 export const isValidAvailability = (availability) => {
   return typeof availability === 'string' && ALLOWED_AVAILABILITY.includes(availability);
+};
+
+export const isValidGender = (gender) => {
+  if (gender === null || gender === undefined || gender === '') return true;
+  return typeof gender === 'string' && ALLOWED_GENDERS.includes(gender);
 };
 
 export const isValidPincode = (pincode) => {

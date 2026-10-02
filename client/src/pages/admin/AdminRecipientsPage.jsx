@@ -17,10 +17,9 @@ import {
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
-import { MOCK_ADMIN_RECIPIENTS_LIST } from '../../constants/mockData';
 
 export default function AdminRecipientsPage() {
-  const [recipients, setRecipients] = useState(MOCK_ADMIN_RECIPIENTS_LIST);
+  const [recipients, setRecipients] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [feedback, setFeedback] = useState('');

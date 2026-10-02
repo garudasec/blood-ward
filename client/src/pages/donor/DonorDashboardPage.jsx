@@ -19,13 +19,12 @@ import Button from '../../components/common/Button';
 import DonorAvailabilityCard from '../../components/donor/DonorAvailabilityCard';
 import DonorSummaryStats from '../../components/donor/DonorSummaryStats';
 import DonorRequestCard from '../../components/donor/DonorRequestCard';
-import { MOCK_DONOR_REQUESTS, MOCK_DONOR_STATS } from '../../constants/mockData';
 
 export default function DonorDashboardPage() {
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
 
-  const [requests, setRequests] = useState(MOCK_DONOR_REQUESTS);
+  const [requests, setRequests] = useState([]);
   const [selectedRadius, setSelectedRadius] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [acceptedCount, setAcceptedCount] = useState(1);
@@ -47,7 +46,7 @@ export default function DonorDashboardPage() {
   const handleRefresh = () => {
     setIsLoading(true);
     setTimeout(() => {
-      setRequests(MOCK_DONOR_REQUESTS);
+      setRequests([]);
       setIsLoading(false);
     }, 500);
   };
@@ -111,7 +110,7 @@ export default function DonorDashboardPage() {
       {/* 3. SUMMARY STATS GRID */}
       <DonorSummaryStats
         stats={{
-          ...MOCK_DONOR_STATS,
+          ...{ totalDonations: 0, livesSaved: 0, nearbyActiveCount: 0, acceptedCount: 0 },
           nearbyActiveCount: isAvailable ? filteredRequests.length : 0,
           acceptedCount: acceptedCount,
         }}

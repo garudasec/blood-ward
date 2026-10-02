@@ -13,7 +13,10 @@ import {
   Search,
 } from 'lucide-react';
 import Input from '../../components/common/Input';
+import Select from '../../components/common/Select';
 import Button from '../../components/common/Button';
+import { GENDER_OPTIONS } from '../../constants/theme';
+import { INDIA_STATES_AND_CITIES, INDIAN_STATES_LIST } from '../../constants/indiaLocations';
 
 export default function RecipientProfilePage() {
   const { user, updateUser } = useAuth();
@@ -22,18 +25,30 @@ export default function RecipientProfilePage() {
   const [successMsg, setSuccessMsg] = useState('');
 
   const [formData, setFormData] = useState({
-    fullName: user?.fullName || 'Sarah Chen',
-    email: user?.email || 'recipient@bloodward.com',
-    phone: user?.phone || '+1 (555) 987-6543',
-    city: user?.city || 'New York',
-    pincode: user?.pincode || '10001',
+    fullName: user?.fullName || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    state: user?.state || '',
+    city: user?.city || '',
+    pincode: user?.pincode || '',
+    gender: user?.gender || '',
   });
 
   const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
     const { id, value } = e.target;
-    setFormData((prev) => ({ ...prev, [id]: value }));
+
+    if (id === 'state') {
+      setFormData((prev) => ({
+        ...prev,
+        state: value,
+        city: '',
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [id]: value }));
+    }
+
     if (errors[id]) setErrors((prev) => ({ ...prev, [id]: '' }));
     if (successMsg) setSuccessMsg('');
   };
@@ -52,8 +67,6 @@ export default function RecipientProfilePage() {
     } else if (!/^[0-9+\-\s()]{8,15}$/.test(formData.phone)) {
       newErrors.phone = 'Enter a valid phone number';
     }
-
-    if (!formData.city.trim()) newErrors.city = 'City is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -75,11 +88,13 @@ export default function RecipientProfilePage() {
 
   const handleCancel = () => {
     setFormData({
-      fullName: user?.fullName || 'Sarah Chen',
-      email: user?.email || 'recipient@bloodward.com',
-      phone: user?.phone || '+1 (555) 987-6543',
-      city: user?.city || 'New York',
-      pincode: user?.pincode || '10001',
+      fullName: user?.fullName || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      state: user?.state || '',
+      city: user?.city || '',
+      pincode: user?.pincode || '',
+    gender: user?.gender || '',
     });
     setErrors({});
     setIsEditing(false);
@@ -99,22 +114,13 @@ export default function RecipientProfilePage() {
 
   const completionRate = calculateCompletion();
 
+  const cityOptions = formData.state
+    ? (INDIA_STATES_AND_CITIES[formData.state] || [])
+    : (formData.city ? [formData.city] : []);
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      {/* Success Notification Banner */}
-      {successMsg && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-xs">
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            {successMsg}
-          </span>
-          <button onClick={() => setSuccessMsg('')} className="text-emerald-600 hover:text-emerald-950">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Header Profile Card */}
+      {/* Header Banner */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-slate-100">
           <div className="flex items-center gap-4">
@@ -125,7 +131,7 @@ export default function RecipientProfilePage() {
             <div className="space-y-1">
               <div className="flex items-center gap-2.5">
                 <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                  {formData.fullName}
+                  {formData.fullName || 'Recipient User'}
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
                   Recipient Profile
@@ -134,7 +140,7 @@ export default function RecipientProfilePage() {
               <p className="text-xs text-slate-500 flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-slate-400" /> {formData.email}
                 <span className="text-slate-300">•</span>
-                <MapPin className="w-3.5 h-3.5 text-slate-400" /> {formData.city}
+                <MapPin className="w-3.5 h-3.5 text-slate-400" /> {formData.city ? `${formData.city}${formData.state ? ', ' + formData.state : ''}` : 'Location Unspecified'}
               </p>
             </div>
           </div>
@@ -221,18 +227,44 @@ export default function RecipientProfilePage() {
                 required
               />
 
-              <Input
-                label="City / Search Location"
-                id="city"
-                value={formData.city}
+              <Select
+                label="Gender"
+                id="gender"
+                options={GENDER_OPTIONS}
+                value={formData.gender}
                 onChange={handleChange}
-                error={errors.city}
-                icon={MapPin}
-                required
+                error={errors.gender}
+                placeholder="Select Gender"
+                icon={User}
               />
             </div>
 
+            {/* Dependent Location Dropdowns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                label="State / UT"
+                id="state"
+                options={INDIAN_STATES_LIST}
+                value={formData.state}
+                onChange={handleChange}
+                error={errors.state}
+                placeholder="Select State / UT"
+                icon={MapPin}
+              />
+
+              <Select
+                label="City / Search Location"
+                id="city"
+                options={cityOptions}
+                value={formData.city}
+                onChange={handleChange}
+                error={errors.city}
+                placeholder={formData.state ? "Select City" : (formData.city || "Select State First")}
+                icon={MapPin}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
               <Input
                 label="Pincode / Postal Code"
                 id="pincode"
@@ -278,9 +310,23 @@ export default function RecipientProfilePage() {
               </div>
 
               <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Gender</span>
+                <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <User className="w-4 h-4 text-blue-500" /> {formData.gender || 'Not specified'}
+                </p>
+              </div>
+
+              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400">State / UT</span>
+                <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-500" /> {formData.state || 'Not specified'}
+                </p>
+              </div>
+
+              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                 <span className="text-[10px] uppercase font-bold text-slate-400">City / Location</span>
                 <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-blue-500" /> {formData.city}
+                  <MapPin className="w-4 h-4 text-blue-500" /> {formData.city || 'Not specified'}
                 </p>
               </div>
 
@@ -290,7 +336,6 @@ export default function RecipientProfilePage() {
               </div>
             </div>
 
-            {/* Privacy Box */}
             <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200/80 text-blue-900 text-xs flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
               <div className="space-y-0.5">

@@ -22,14 +22,13 @@ import BloodGroupBadge from '../../components/common/BloodGroupBadge';
 import StatusBadge from '../../components/common/StatusBadge';
 import Button from '../../components/common/Button';
 import RecipientRequestTrackingModal from '../../components/recipient/RecipientRequestTrackingModal';
-import { MOCK_RECIPIENT_REQUESTS } from '../../constants/mockData';
 import { REQUEST_STATUS } from '../../constants/theme';
 
 export default function RecipientRequestsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [requests, setRequests] = useState(MOCK_RECIPIENT_REQUESTS);
+  const [requests, setRequests] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [urgencyFilter, setUrgencyFilter] = useState('ALL');
@@ -51,7 +50,7 @@ export default function RecipientRequestsPage() {
   const handleRefresh = () => {
     setIsLoading(true);
     setTimeout(() => {
-      setRequests([...MOCK_RECIPIENT_REQUESTS]);
+      setRequests([...[]]);
       setIsLoading(false);
     }, 400);
   };

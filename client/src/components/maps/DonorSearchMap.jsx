@@ -4,7 +4,6 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ShieldCheck, MapPin, Eye } from 'lucide-react';
 import BloodGroupBadge from '../common/BloodGroupBadge';
-import { MOCK_RECIPIENT_LOCATION } from '../../constants/mockData';
 
 // Custom Recipient Location Icon
 const recipientIcon = L.divIcon({
@@ -33,7 +32,7 @@ export default function DonorSearchMap({
   donors = [],
   radiusKm = 10,
   onSelectDonor,
-  center = [MOCK_RECIPIENT_LOCATION.lat, MOCK_RECIPIENT_LOCATION.lng],
+  center = [{ lat: 40.7128, lng: -74.0060 }.lat, { lat: 40.7128, lng: -74.0060 }.lng],
 }) {
   const radiusMeters = (radiusKm >= 9999 ? 25 : radiusKm) * 1000;
 
@@ -81,7 +80,7 @@ export default function DonorSearchMap({
           <Popup>
             <div className="p-1 space-y-1 text-xs">
               <span className="font-bold text-slate-900 block">Your Search Location</span>
-              <span className="text-slate-500 block">{MOCK_RECIPIENT_LOCATION.address}</span>
+              <span className="text-slate-500 block">{{ lat: 40.7128, lng: -74.0060 }.address}</span>
             </div>
           </Popup>
         </Marker>

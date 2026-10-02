@@ -1,3 +1,4 @@
+import api from '../../services/api';
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -19,7 +20,8 @@ import Input from '../../components/common/Input';
 import Select from '../../components/common/Select';
 import Button from '../../components/common/Button';
 import BloodGroupBadge from '../../components/common/BloodGroupBadge';
-import { BLOOD_GROUPS } from '../../constants/theme';
+import { BLOOD_GROUPS, GENDER_OPTIONS } from '../../constants/theme';
+import { INDIA_STATES_AND_CITIES, INDIAN_STATES_LIST } from '../../constants/indiaLocations';
 
 export default function DonorProfilePage() {
   const { user, updateUser } = useAuth();
@@ -29,23 +31,35 @@ export default function DonorProfilePage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const [formData, setFormData] = useState({
-    fullName: user?.fullName || 'Alex Rivera',
-    email: user?.email || 'donor@bloodward.com',
-    phone: user?.phone || '+1 (555) 234-5678',
+    fullName: user?.fullName || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
     bloodGroup: user?.bloodGroup || 'O+',
-    city: user?.city || 'New York',
-    pincode: user?.pincode || '10001',
-    isAvailable: user?.isAvailable ?? true,
+    state: user?.state || '',
+    city: user?.city || '',
+    pincode: user?.pincode || '',
+    gender: user?.gender || '',
+    isAvailable: user?.availability === 'available' || user?.isAvailable !== false,
   });
 
   const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
     const { id, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [id]: type === 'checkbox' ? checked : value,
-    }));
+
+    if (id === 'state') {
+      setFormData((prev) => ({
+        ...prev,
+        state: value,
+        city: '',
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [id]: type === 'checkbox' ? checked : value,
+      }));
+    }
+
     if (errors[id]) setErrors((prev) => ({ ...prev, [id]: '' }));
     if (successMsg) setSuccessMsg('');
     if (errorMsg) setErrorMsg('');
@@ -67,41 +81,63 @@ export default function DonorProfilePage() {
     }
 
     if (!formData.bloodGroup) newErrors.bloodGroup = 'Blood group selection required';
-    if (!formData.city.trim()) newErrors.city = 'City is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsSaving(true);
-    setTimeout(() => {
-      updateUser(formData);
-      setIsSaving(false);
+    try {
+      if (user?.role === 'donor') {
+        const res = await api.put('/donors/me', {
+          fullName: formData.fullName,
+          phone: formData.phone,
+          bloodGroup: formData.bloodGroup,
+          state: formData.state,
+          city: formData.city,
+          pincode: formData.pincode,
+          gender: formData.gender,
+        });
+        if (res.data?.donor) {
+          updateUser(res.data.donor);
+        } else {
+          updateUser(formData);
+        }
+      } else {
+        updateUser(formData);
+      }
       setIsEditing(false);
       setSuccessMsg('Profile information updated successfully!');
       setTimeout(() => setSuccessMsg(''), 4000);
-    }, 400);
+    } catch (err) {
+      console.error('Failed to update profile backend:', err);
+      updateUser(formData);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
     setFormData({
-      fullName: user?.fullName || 'Alex Rivera',
-      email: user?.email || 'donor@bloodward.com',
-      phone: user?.phone || '+1 (555) 234-5678',
+      fullName: user?.fullName || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
       bloodGroup: user?.bloodGroup || 'O+',
-      city: user?.city || 'New York',
-      pincode: user?.pincode || '10001',
-      isAvailable: user?.isAvailable ?? true,
+      state: user?.state || '',
+      city: user?.city || '',
+      pincode: user?.pincode || '',
+    gender: user?.gender || '',
+      isAvailable: user?.availability === 'available' || user?.isAvailable !== false,
     });
     setErrors({});
     setIsEditing(false);
   };
 
-  // Calculate completion rate based on filled fields
   const calculateCompletion = () => {
     const fields = [
       formData.fullName,
@@ -109,7 +145,6 @@ export default function DonorProfilePage() {
       formData.phone,
       formData.bloodGroup,
       formData.city,
-      formData.pincode,
     ];
     const filled = fields.filter((f) => f && String(f).trim().length > 0).length;
     return Math.round((filled / fields.length) * 100);
@@ -117,22 +152,13 @@ export default function DonorProfilePage() {
 
   const completionRate = calculateCompletion();
 
+  const cityOptions = formData.state
+    ? (INDIA_STATES_AND_CITIES[formData.state] || [])
+    : (formData.city ? [formData.city] : []);
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      {/* Success Notification Banner */}
-      {successMsg && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-xs">
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            {successMsg}
-          </span>
-          <button onClick={() => setSuccessMsg('')} className="text-emerald-600 hover:text-emerald-950">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Profile Overview Card */}
+      {/* Header Banner */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-slate-100">
           <div className="flex items-center gap-4">
@@ -143,14 +169,16 @@ export default function DonorProfilePage() {
             <div className="space-y-1">
               <div className="flex items-center gap-2.5">
                 <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                  {formData.fullName}
+                  {formData.fullName || 'Donor User'}
                 </h1>
-                <BloodGroupBadge group={formData.bloodGroup} size="sm" />
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
+                  Donor Profile
+                </span>
               </div>
               <p className="text-xs text-slate-500 flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-slate-400" /> {formData.email}
                 <span className="text-slate-300">•</span>
-                <MapPin className="w-3.5 h-3.5 text-slate-400" /> {formData.city}
+                <MapPin className="w-3.5 h-3.5 text-slate-400" /> {formData.city ? `${formData.city}${formData.state ? ', ' + formData.state : ''}` : 'Location Unspecified'}
               </p>
             </div>
           </div>
@@ -173,7 +201,13 @@ export default function DonorProfilePage() {
           </div>
         </div>
 
-        {/* Profile Completion Bar */}
+        {successMsg && (
+          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-slate-700">Profile Completion</span>
@@ -188,11 +222,11 @@ export default function DonorProfilePage() {
         </div>
       </div>
 
-      {/* Main Profile Form / View Section */}
+      {/* Main Details Section */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
         <div className="flex items-center justify-between border-b pb-4">
           <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
-            Donor Details & Preferences
+            Donor Details & Location Settings
           </h2>
           <span className="text-xs text-slate-400">
             {isEditing ? 'Mode: Editing' : 'Mode: Read-Only View'}
@@ -249,17 +283,45 @@ export default function DonorProfilePage() {
               />
             </div>
 
+            <div className="grid grid-cols-1 gap-4">
+              <Select
+                label="Gender"
+                id="gender"
+                options={GENDER_OPTIONS}
+                value={formData.gender}
+                onChange={handleChange}
+                error={errors.gender}
+                placeholder="Select Gender"
+                icon={User}
+              />
+            </div>
+
+            {/* Dependent Location Dropdowns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="City / Location"
+              <Select
+                label="State / UT"
+                id="state"
+                options={INDIAN_STATES_LIST}
+                value={formData.state}
+                onChange={handleChange}
+                error={errors.state}
+                placeholder="Select State / UT"
+                icon={MapPin}
+              />
+
+              <Select
+                label="City"
                 id="city"
+                options={cityOptions}
                 value={formData.city}
                 onChange={handleChange}
                 error={errors.city}
+                placeholder={formData.state ? "Select City" : (formData.city || "Select State First")}
                 icon={MapPin}
-                required
               />
+            </div>
 
+            <div className="grid grid-cols-1 gap-4">
               <Input
                 label="Pincode / Postal Code"
                 id="pincode"
@@ -270,7 +332,6 @@ export default function DonorProfilePage() {
               />
             </div>
 
-            {/* Availability Toggle in Edit */}
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
               <div>
                 <label htmlFor="isAvailable" className="text-xs font-bold text-slate-900 cursor-pointer block">
@@ -335,19 +396,32 @@ export default function DonorProfilePage() {
               </div>
 
               <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400">City / Region</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400">Gender</span>
                 <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-red-500" /> {formData.city}
+                  <User className="w-4 h-4 text-red-500" /> {formData.gender || 'Not specified'}
                 </p>
               </div>
 
               <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400">State / UT</span>
+                <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-red-500" /> {formData.state || 'Not specified'}
+                </p>
+              </div>
+
+              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400">City / Region</span>
+                <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-red-500" /> {formData.city || 'Not specified'}
+                </p>
+              </div>
+
+              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 sm:col-span-2">
                 <span className="text-[10px] uppercase font-bold text-slate-400">Pincode</span>
                 <p className="font-bold text-slate-900 text-sm">{formData.pincode || 'N/A'}</p>
               </div>
             </div>
 
-            {/* Privacy Shield Box */}
             <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/80 text-emerald-900 text-xs flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div className="space-y-0.5">

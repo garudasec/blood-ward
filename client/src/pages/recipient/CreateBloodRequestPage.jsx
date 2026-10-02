@@ -19,7 +19,6 @@ import Select from '../../components/common/Select';
 import Button from '../../components/common/Button';
 import BloodGroupBadge from '../../components/common/BloodGroupBadge';
 import { BLOOD_GROUPS, URGENCY_LEVELS } from '../../constants/theme';
-import { MOCK_RECIPIENT_REQUESTS } from '../../constants/mockData';
 
 export default function CreateBloodRequestPage() {
   const navigate = useNavigate();
@@ -91,7 +90,7 @@ export default function CreateBloodRequestPage() {
       };
 
       // Push to mock requests array so frontend flows demonstrate the active request
-      MOCK_RECIPIENT_REQUESTS.unshift(newReq);
+      [].unshift(newReq);
 
       setIsSubmitting(false);
       setShowReview(false);

@@ -46,41 +46,6 @@ export const AuthProvider = ({ children }) => {
     setUser((prev) => (prev ? { ...prev, ...updatedFields } : null));
   };
 
-  // Demo helper for previewing roles before full backend database setup
-  const setDemoUser = (role) => {
-    const demoProfiles = {
-      [USER_ROLES.DONOR]: {
-        _id: 'demo-donor-1',
-        fullName: 'Alex Rivera (Demo Donor)',
-        email: 'donor@bloodward.com',
-        role: USER_ROLES.DONOR,
-        bloodGroup: 'O+',
-        city: 'New York',
-        isAvailable: true,
-        phone: '+1 (555) 234-5678',
-      },
-      [USER_ROLES.RECIPIENT]: {
-        _id: 'demo-recipient-1',
-        fullName: 'Sarah Chen (Demo Recipient)',
-        email: 'recipient@bloodward.com',
-        role: USER_ROLES.RECIPIENT,
-        city: 'New York',
-        phone: '+1 (555) 987-6543',
-      },
-      [USER_ROLES.ADMIN]: {
-        _id: 'demo-admin-1',
-        fullName: 'System Administrator',
-        email: 'admin@bloodward.com',
-        role: USER_ROLES.ADMIN,
-      },
-    };
-
-    if (role) {
-      setUser(demoProfiles[role]);
-    } else {
-      setUser(null);
-    }
-  };
 
   const value = {
     user,
@@ -90,7 +55,6 @@ export const AuthProvider = ({ children }) => {
     login: loginUser,
     logout: logoutUser,
     updateUser,
-    setDemoUser, // For easy testing & demoing roles
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

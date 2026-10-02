@@ -18,12 +18,11 @@ import Button from '../../components/common/Button';
 import RecipientDonorCard from '../../components/recipient/RecipientDonorCard';
 import RecipientDonorDetailModal from '../../components/recipient/RecipientDonorDetailModal';
 import DonorSearchMap from '../../components/maps/DonorSearchMap';
-import { MOCK_SEARCHABLE_DONORS } from '../../constants/mockData';
 import { BLOOD_GROUPS } from '../../constants/theme';
 
 export default function RecipientDonorSearchPage() {
   const { user } = useAuth();
-  const [donors, setDonors] = useState(MOCK_SEARCHABLE_DONORS);
+  const [donors, setDonors] = useState([]);
   const [selectedBloodGroup, setSelectedBloodGroup] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [distanceRadius, setDistanceRadius] = useState(20);
@@ -44,7 +43,7 @@ export default function RecipientDonorSearchPage() {
   const handleRefresh = () => {
     setIsLoading(true);
     setTimeout(() => {
-      setDonors(MOCK_SEARCHABLE_DONORS);
+      setDonors([]);
       setIsLoading(false);
     }, 400);
   };

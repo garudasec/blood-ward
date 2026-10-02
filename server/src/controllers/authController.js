@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
 import AppError from '../utils/appError.js';
 import { logAuditEvent } from '../utils/auditLogger.js';
+import { ALLOWED_GENDERS } from '../utils/validators.js';
 
 const signToken = (id, role) => {
   const secret = process.env.JWT_SECRET;
@@ -31,7 +32,9 @@ const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
     email: user.email,
     phone: user.phone,
     role: user.role,
+    gender: user.gender || '',
     bloodGroup: user.bloodGroup || null,
+    state: user.state || '',
     city: user.city || '',
     pincode: user.pincode || '',
     availability: user.availability || 'not_available',
@@ -47,10 +50,14 @@ const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
 
 export const registerDonor = async (req, res, next) => {
   try {
-    const { fullName, email, phone, password, bloodGroup, city, pincode, isAvailable, availability, location } = req.body;
+    const { fullName, email, phone, gender, password, bloodGroup, state, city, pincode, isAvailable, availability, location } = req.body;
 
     if (!fullName || !email || !phone || !password || !bloodGroup) {
       return next(new AppError('Full Name, Email, Phone, Password, and Blood Group are required for donor registration.', 400));
+    }
+
+    if (gender !== undefined && gender !== '' && !ALLOWED_GENDERS.includes(gender)) {
+      return next(new AppError('Invalid gender value provided.', 400));
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -69,9 +76,11 @@ export const registerDonor = async (req, res, next) => {
       fullName: fullName.trim(),
       email: normalizedEmail,
       phone: phone.trim(),
+      gender: gender ? gender.trim() : '',
       password,
       role: 'donor',
       bloodGroup,
+      state: state ? state.trim() : '',
       city: city ? city.trim() : '',
       pincode: pincode ? pincode.trim() : '',
       availability: donorAvailability,
@@ -99,10 +108,14 @@ export const registerDonor = async (req, res, next) => {
 
 export const registerRecipient = async (req, res, next) => {
   try {
-    const { fullName, email, phone, password, location, city } = req.body;
+    const { fullName, email, phone, gender, password, location, state, city } = req.body;
 
     if (!fullName || !email || !phone || !password) {
       return next(new AppError('Full Name, Email, Phone, and Password are required for recipient registration.', 400));
+    }
+
+    if (gender !== undefined && gender !== '' && !ALLOWED_GENDERS.includes(gender)) {
+      return next(new AppError('Invalid gender value provided.', 400));
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -118,8 +131,10 @@ export const registerRecipient = async (req, res, next) => {
       fullName: fullName.trim(),
       email: normalizedEmail,
       phone: phone.trim(),
+      gender: gender ? gender.trim() : '',
       password,
       role: 'recipient',
+      state: state ? state.trim() : '',
       city: recipientCity,
     });
 
@@ -228,7 +243,9 @@ export const getMe = async (req, res) => {
     email: req.user.email,
     phone: req.user.phone,
     role: req.user.role,
+    gender: req.user.gender || '',
     bloodGroup: req.user.bloodGroup || null,
+    state: req.user.state || '',
     city: req.user.city || '',
     pincode: req.user.pincode || '',
     availability: req.user.availability || 'not_available',

@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import AdminSummaryStats from '../../components/admin/AdminSummaryStats';
-import { MOCK_ADMIN_STATS, MOCK_ADMIN_ACTIVITY } from '../../constants/mockData';
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
@@ -53,7 +52,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* 2. ADMIN SUMMARY STATS GRID */}
-      <AdminSummaryStats stats={MOCK_ADMIN_STATS} />
+      <AdminSummaryStats stats={{ totalDonors: 0, totalRecipients: 0, activeAvailableDonors: 0, activeRequests: 0, emergencyRequests: 0, fulfilledRequests: 0 }} />
 
       {/* 3. QUICK NAVIGATION CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -134,7 +133,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="space-y-3">
-            {MOCK_ADMIN_ACTIVITY.map((act) => (
+            {[].map((act) => (
               <div
                 key={act.id}
                 className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs flex items-center justify-between"
