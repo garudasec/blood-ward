@@ -12,6 +12,7 @@ import notFoundHandler from './src/middleware/notFoundMiddleware.js';
 
 import healthRouter from './src/routes/health.routes.js';
 import authRouter from './src/routes/auth.routes.js';
+import rbacTestRouter from './src/routes/rbacTest.routes.js';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use('/api', globalLimiter);
 
 app.use('/api/health', healthRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/test/rbac', rbacTestRouter);
 
 app.use(notFoundHandler);
 
