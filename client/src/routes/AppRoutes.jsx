@@ -21,6 +21,7 @@ import DonorHistoryPage from '../pages/donor/DonorHistoryPage';
 import RecipientDashboardPage from '../pages/recipient/RecipientDashboardPage';
 import RecipientProfilePage from '../pages/recipient/RecipientProfilePage';
 import RecipientDonorSearchPage from '../pages/recipient/RecipientDonorSearchPage';
+import CreateBloodRequestPage from '../pages/recipient/CreateBloodRequestPage';
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
 
 import ProtectedRoute from './ProtectedRoute';
@@ -130,7 +131,7 @@ export default function AppRoutes() {
         >
           <Route index element={<RecipientDashboardPage />} />
           <Route path="donors" element={<RecipientDonorSearchPage />} />
-          <Route path="requests/create" element={<RecipientDashboardPage />} />
+          <Route path="requests/create" element={<CreateBloodRequestPage />} />
           <Route path="requests" element={<RecipientDashboardPage />} />
           <Route path="profile" element={<RecipientProfilePage />} />
         </Route>
