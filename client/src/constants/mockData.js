@@ -136,7 +136,6 @@ export const MOCK_RECIPIENT_STATS = {
   fulfilledCount: 2,
 };
 
-// Base recipient location center (New York City coordinates)
 export const MOCK_RECIPIENT_LOCATION = {
   lat: 40.7128,
   lng: -74.006,
@@ -247,5 +246,45 @@ export const MOCK_SEARCHABLE_DONORS = [
     responseRate: '90%',
     lat: 40.672,
     lng: -73.952,
+  },
+];
+
+export const MOCK_ADMIN_STATS = {
+  totalDonors: 142,
+  totalRecipients: 89,
+  activeAvailableDonors: 94,
+  activeRequests: 8,
+  emergencyRequests: 3,
+  fulfilledRequests: 56,
+};
+
+export const MOCK_ADMIN_ACTIVITY = [
+  {
+    id: 'act-1',
+    user: 'System Admin',
+    action: 'Verified Donor Account #donor-3 (Marcus Vance)',
+    time: '10 mins ago',
+    type: 'security',
+  },
+  {
+    id: 'act-2',
+    user: 'Recipient #rec-12',
+    action: 'Issued Emergency Request #req-301 (A+)',
+    time: '25 mins ago',
+    type: 'request',
+  },
+  {
+    id: 'act-3',
+    user: 'Donor #donor-1',
+    action: 'Accepted Emergency Request #req-301',
+    time: '20 mins ago',
+    type: 'donor',
+  },
+  {
+    id: 'act-4',
+    user: 'System Admin',
+    action: 'Logged System Audit Trail #audit-994',
+    time: '1 hour ago',
+    type: 'audit',
   },
 ];
