@@ -3,9 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, Droplet, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
+import { useAuth } from '../../context/AuthContext';
+import { authService } from '../../services/authService';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -41,17 +44,29 @@ export default function LoginPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsLoading(true);
-    // Placeholder UI demonstration for Phase 3 before Phase 4 AuthContext integration
-    setTimeout(() => {
+    setServerError('');
+    try {
+      const res = await authService.login({
+        email: formData.email,
+        password: formData.password,
+      });
+      if (res.success && res.user) {
+        login(res.user);
+        if (res.user.role === 'donor') navigate('/donor');
+        else if (res.user.role === 'recipient') navigate('/recipient');
+        else if (res.user.role === 'admin') navigate('/admin');
+        else navigate('/');
+      }
+    } catch (err) {
+      setServerError(err.message || 'Invalid email or password.');
+    } finally {
       setIsLoading(false);
-      // Notice for user
-      setServerError('Backend API connection will be activated in Phase 4 (AuthContext & API Services).');
-    }, 800);
+    }
   };
 
   return (
@@ -74,7 +89,7 @@ export default function LoginPage() {
           <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2.5">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold">Notice</p>
+              <p className="font-semibold">Authentication Error</p>
               <p>{serverError}</p>
             </div>
           </div>

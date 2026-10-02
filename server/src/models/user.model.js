@@ -1,11 +1,12 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const pointSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["Point"],
-      default: "Point",
+      enum: ['Point'],
+      default: 'Point',
     },
     coordinates: {
       type: [Number],
@@ -15,13 +16,13 @@ const pointSchema = new mongoose.Schema(
           return (
             Array.isArray(val) &&
             val.length === 2 &&
-            typeof val[0] === "number" &&
+            typeof val[0] === 'number' &&
             !Number.isNaN(val[0]) &&
-            typeof val[1] === "number" &&
+            typeof val[1] === 'number' &&
             !Number.isNaN(val[1])
           );
         },
-        message: "Coordinates must contain exactly two numbers [longitude, latitude]",
+        message: 'Coordinates must contain exactly two numbers [longitude, latitude]',
       },
     },
   },
@@ -32,8 +33,9 @@ const userSchema = new mongoose.Schema(
   {
     username: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       trim: true,
     },
     fullName: {
@@ -55,21 +57,33 @@ const userSchema = new mongoose.Schema(
     },
     profilePhoto: {
       type: String,
-      default: "",
+      default: '',
       trim: true,
     },
     password: {
       type: String,
       required: true,
+      select: false,
     },
     role: {
       type: String,
       required: true,
-      enum: ["admin", "donor", "recipient"],
+      enum: ['admin', 'donor', 'recipient'],
+      default: 'donor',
     },
     bloodGroup: {
       type: String,
-      enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+    },
+    city: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    pincode: {
+      type: String,
+      default: '',
+      trim: true,
     },
     location: {
       type: pointSchema,
@@ -77,8 +91,16 @@ const userSchema = new mongoose.Schema(
     },
     availability: {
       type: String,
-      enum: ["available", "not_available"],
-      default: "not_available",
+      enum: ['available', 'not_available'],
+      default: 'not_available',
+    },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
+    lastActiveAt: {
+      type: Date,
+      default: Date.now,
     },
   },
   {
@@ -86,8 +108,18 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-userSchema.index({ location: "2dsphere" });
+userSchema.index({ location: '2dsphere' });
 
-const User = mongoose.model("User", userSchema);
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
+
+const User = mongoose.model('User', userSchema);
 
 export default User;

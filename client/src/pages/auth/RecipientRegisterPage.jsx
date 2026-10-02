@@ -8,13 +8,15 @@ import {
   MapPin,
   Search,
   AlertCircle,
-  ShieldCheck,
 } from 'lucide-react';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
+import { useAuth } from '../../context/AuthContext';
+import { authService } from '../../services/authService';
 
 export default function RecipientRegisterPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -69,15 +71,29 @@ export default function RecipientRegisterPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsLoading(true);
-    setTimeout(() => {
+    setServerNotice('');
+    try {
+      const res = await authService.registerRecipient({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        city: formData.location,
+      });
+      if (res.success && res.user) {
+        login(res.user);
+        navigate('/recipient');
+      }
+    } catch (err) {
+      setServerNotice(err.message || 'Recipient registration failed.');
+    } finally {
       setIsLoading(false);
-      setServerNotice('Recipient Registration UI verified. API integration scheduled for Phase 4.');
-    }, 800);
+    }
   };
 
   return (
@@ -97,8 +113,8 @@ export default function RecipientRegisterPage() {
         </div>
 
         {serverNotice && (
-          <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs flex items-start gap-2.5">
-            <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <p>{serverNotice}</p>
           </div>
         )}

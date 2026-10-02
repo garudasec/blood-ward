@@ -1,17 +1,22 @@
 import dns from 'dns';
-// Force Node.js to use reliable public DNS servers
-dns.setServers(['1.1.1.1', '8.8.8.8']); 
+import mongoose from 'mongoose';
 
-import mongoose from "mongoose";
+dns.setServers(['1.1.1.1', '8.8.8.8']);
 
 const connectDB = async () => {
-    try {
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log("MongoDB connected successfully");
-    } catch (error) {
-        console.error(`Failed to connect to MongoDB: ${error.message}`);
-        process.exit(1);
+  try {
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error('MONGODB_URI is not defined in environment variables');
     }
+
+    const conn = await mongoose.connect(mongoUri);
+    console.log('MongoDB connected successfully: ' + conn.connection.host);
+    return conn;
+  } catch (error) {
+    console.error('Failed to connect to MongoDB: ' + error.message);
+    process.exit(1);
+  }
 };
 
 export default connectDB;

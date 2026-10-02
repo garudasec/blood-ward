@@ -9,7 +9,7 @@ const api = axios.create({
   },
 });
 
-// Response interceptor for handling 41` errors (Unauthorized)
+// Response interceptor for handling 401 errors (Unauthorized)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
