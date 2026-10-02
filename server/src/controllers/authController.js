@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
 import AppError from '../utils/appError.js';
+import { logAuditEvent } from '../utils/auditLogger.js';
 
 const signToken = (id, role) => {
   const secret = process.env.JWT_SECRET;
@@ -77,6 +78,16 @@ export const registerDonor = async (req, res, next) => {
       location: location || undefined,
     });
 
+    logAuditEvent({
+      actor: newUser._id,
+      actorName: newUser.fullName,
+      action: 'REGISTER_DONOR',
+      category: 'AUTH',
+      target: newUser._id.toString(),
+      ipAddress: req.ip,
+      severity: 'NORMAL',
+    });
+
     sendTokenResponse(newUser, 201, res, 'Donor registration successful.');
   } catch (error) {
     if (error.code === 11000) {
@@ -112,6 +123,16 @@ export const registerRecipient = async (req, res, next) => {
       city: recipientCity,
     });
 
+    logAuditEvent({
+      actor: newUser._id,
+      actorName: newUser.fullName,
+      action: 'REGISTER_RECIPIENT',
+      category: 'AUTH',
+      target: newUser._id.toString(),
+      ipAddress: req.ip,
+      severity: 'NORMAL',
+    });
+
     sendTokenResponse(newUser, 201, res, 'Recipient registration successful.');
   } catch (error) {
     if (error.code === 11000) {
@@ -138,6 +159,15 @@ export const login = async (req, res, next) => {
     }
 
     if (user.isBlocked) {
+      logAuditEvent({
+        actor: user._id,
+        actorName: user.fullName,
+        action: 'BLOCKED_LOGIN_ATTEMPT',
+        category: 'SECURITY',
+        target: user.email,
+        ipAddress: req.ip,
+        severity: 'HIGH',
+      });
       return next(new AppError('Your account has been blocked by system administration.', 403));
     }
 
@@ -148,6 +178,16 @@ export const login = async (req, res, next) => {
 
     user.lastActiveAt = new Date();
     await user.save({ validateBeforeSave: false });
+
+    logAuditEvent({
+      actor: user._id,
+      actorName: user.fullName,
+      action: 'LOGIN_SUCCESS',
+      category: 'AUTH',
+      target: user.email,
+      ipAddress: req.ip,
+      severity: 'NORMAL',
+    });
 
     sendTokenResponse(user, 200, res, 'Logged in successfully.');
   } catch (error) {
@@ -162,6 +202,18 @@ export const logout = async (req, res) => {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
   });
+
+  if (req.user) {
+    logAuditEvent({
+      actor: req.user._id,
+      actorName: req.user.fullName,
+      action: 'LOGOUT',
+      category: 'AUTH',
+      target: req.user.email,
+      ipAddress: req.ip,
+      severity: 'NORMAL',
+    });
+  }
 
   res.status(200).json({
     success: true,

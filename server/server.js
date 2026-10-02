@@ -14,6 +14,8 @@ import healthRouter from './src/routes/health.routes.js';
 import authRouter from './src/routes/auth.routes.js';
 import rbacTestRouter from './src/routes/rbacTest.routes.js';
 import donorRouter from './src/routes/donor.routes.js';
+import bloodRequestRouter from './src/routes/bloodRequest.routes.js';
+import adminRouter from './src/routes/admin.routes.js';
 
 dotenv.config();
 
@@ -42,6 +44,8 @@ app.use('/api', globalLimiter);
 app.use('/api/health', healthRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/donors', donorRouter);
+app.use('/api/requests', bloodRequestRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/test/rbac', rbacTestRouter);
 
 app.use(notFoundHandler);
