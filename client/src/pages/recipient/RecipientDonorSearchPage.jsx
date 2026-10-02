@@ -10,11 +10,14 @@ import {
   CheckCircle2,
   ShieldCheck,
   Droplet,
+  Map as MapIcon,
+  LayoutGrid,
 } from 'lucide-react';
 import BloodGroupBadge from '../../components/common/BloodGroupBadge';
 import Button from '../../components/common/Button';
 import RecipientDonorCard from '../../components/recipient/RecipientDonorCard';
 import RecipientDonorDetailModal from '../../components/recipient/RecipientDonorDetailModal';
+import DonorSearchMap from '../../components/maps/DonorSearchMap';
 import { MOCK_SEARCHABLE_DONORS } from '../../constants/mockData';
 import { BLOOD_GROUPS } from '../../constants/theme';
 
@@ -25,7 +28,8 @@ export default function RecipientDonorSearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [distanceRadius, setDistanceRadius] = useState(20);
   const [availableOnly, setAvailableOnly] = useState(true);
-  const [sortBy, setSortBy] = useState('NEAREST'); // 'NEAREST' | 'FARTHEST' | 'RECENT'
+  const [sortBy, setSortBy] = useState('NEAREST');
+  const [viewMode, setViewMode] = useState('GRID'); // 'GRID' | 'MAP'
   const [selectedDonorForModal, setSelectedDonorForModal] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -60,7 +64,7 @@ export default function RecipientDonorSearchPage() {
     .sort((a, b) => {
       if (sortBy === 'NEAREST') return a.distanceKm - b.distanceKm;
       if (sortBy === 'FARTHEST') return b.distanceKm - a.distanceKm;
-      return 0; // Recent
+      return 0;
     });
 
   return (
@@ -81,17 +85,44 @@ export default function RecipientDonorSearchPage() {
           </p>
         </div>
 
-        <button
-          onClick={handleRefresh}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl transition-colors"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh Search
-        </button>
+        {/* View Mode Switcher (Grid vs Map) & Refresh */}
+        <div className="flex items-center gap-2">
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
+            <button
+              onClick={() => setViewMode('GRID')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'GRID'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" /> Grid View
+            </button>
+            <button
+              onClick={() => setViewMode('MAP')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'MAP'
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5" /> Interactive Map
+            </button>
+          </div>
+
+          <button
+            onClick={handleRefresh}
+            className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
+            title="Refresh search"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Main Search & Filter Control Panel */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
-        {/* 1. Blood Group Selector Chips */}
+        {/* 1. Blood Group Chips */}
         <div className="space-y-2">
           <label className="text-xs font-bold text-slate-700 block uppercase tracking-wider">
             Filter by Blood Group Required:
@@ -123,9 +154,8 @@ export default function RecipientDonorSearchPage() {
           </div>
         </div>
 
-        {/* 2. Controls Grid: Search, Distance, Availability, Sorting */}
+        {/* 2. Controls Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
-          {/* Keyword Search */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
             <input
@@ -137,7 +167,6 @@ export default function RecipientDonorSearchPage() {
             />
           </div>
 
-          {/* Distance Radius */}
           <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 text-xs">
             <MapPin className="w-3.5 h-3.5 text-slate-400" />
             <span className="text-slate-500">Radius:</span>
@@ -155,7 +184,6 @@ export default function RecipientDonorSearchPage() {
             </select>
           </div>
 
-          {/* Sorting */}
           <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 text-xs">
             <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
             <span className="text-slate-500">Sort:</span>
@@ -170,7 +198,6 @@ export default function RecipientDonorSearchPage() {
             </select>
           </div>
 
-          {/* Availability Toggle Switch */}
           <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs">
             <span className="font-semibold text-slate-700">Available Only</span>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -185,10 +212,10 @@ export default function RecipientDonorSearchPage() {
           </div>
         </div>
 
-        {/* Results Info & Reset */}
+        {/* Results Counter & Reset */}
         <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
           <span>
-            Found <strong className="text-slate-900">{filteredDonors.length}</strong> matching available donors
+            Found <strong className="text-slate-900">{filteredDonors.length}</strong> matching donors
           </span>
           <button onClick={handleReset} className="text-red-600 font-bold hover:underline">
             Reset All Filters
@@ -196,13 +223,21 @@ export default function RecipientDonorSearchPage() {
         </div>
       </div>
 
-      {/* Results Grid */}
-      {filteredDonors.length === 0 ? (
+      {/* Main Content: GRID VIEW vs MAP VIEW */}
+      {viewMode === 'MAP' ? (
+        <div className="space-y-4">
+          <DonorSearchMap
+            donors={filteredDonors}
+            radiusKm={distanceRadius}
+            onSelectDonor={(d) => setSelectedDonorForModal(d)}
+          />
+        </div>
+      ) : filteredDonors.length === 0 ? (
         <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
           <Inbox className="w-10 h-10 text-slate-300 mx-auto" />
           <h3 className="font-extrabold text-slate-800 text-base">No donors match your search criteria</h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Try expanding your distance radius, changing blood group selection, or disabling "Available Only" filter.
+            Try expanding your distance radius or selecting a different blood group.
           </p>
           <Button variant="outline" size="sm" onClick={handleReset}>
             Reset Filters

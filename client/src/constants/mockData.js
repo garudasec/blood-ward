@@ -136,6 +136,13 @@ export const MOCK_RECIPIENT_STATS = {
   fulfilledCount: 2,
 };
 
+// Base recipient location center (New York City coordinates)
+export const MOCK_RECIPIENT_LOCATION = {
+  lat: 40.7128,
+  lng: -74.006,
+  address: 'New York Central Search Center',
+};
+
 export const MOCK_SEARCHABLE_DONORS = [
   {
     id: 'donor-1',
@@ -147,6 +154,8 @@ export const MOCK_SEARCHABLE_DONORS = [
     lastActive: '5 mins ago',
     donationsCompleted: 6,
     responseRate: '98%',
+    lat: 40.725,
+    lng: -73.998,
   },
   {
     id: 'donor-2',
@@ -158,6 +167,8 @@ export const MOCK_SEARCHABLE_DONORS = [
     lastActive: '12 mins ago',
     donationsCompleted: 4,
     responseRate: '92%',
+    lat: 40.738,
+    lng: -73.985,
   },
   {
     id: 'donor-3',
@@ -169,6 +180,8 @@ export const MOCK_SEARCHABLE_DONORS = [
     lastActive: 'Just now',
     donationsCompleted: 12,
     responseRate: '100%',
+    lat: 40.708,
+    lng: -74.012,
   },
   {
     id: 'donor-4',
@@ -180,6 +193,8 @@ export const MOCK_SEARCHABLE_DONORS = [
     lastActive: '45 mins ago',
     donationsCompleted: 3,
     responseRate: '88%',
+    lat: 40.752,
+    lng: -73.977,
   },
   {
     id: 'donor-5',
@@ -191,6 +206,8 @@ export const MOCK_SEARCHABLE_DONORS = [
     lastActive: '1 hour ago',
     donationsCompleted: 5,
     responseRate: '95%',
+    lat: 40.735,
+    lng: -74.032,
   },
   {
     id: 'donor-6',
@@ -202,6 +219,8 @@ export const MOCK_SEARCHABLE_DONORS = [
     lastActive: '3 hours ago',
     donationsCompleted: 2,
     responseRate: '80%',
+    lat: 40.768,
+    lng: -73.962,
   },
   {
     id: 'donor-7',
@@ -213,6 +232,8 @@ export const MOCK_SEARCHABLE_DONORS = [
     lastActive: '20 mins ago',
     donationsCompleted: 7,
     responseRate: '96%',
+    lat: 40.748,
+    lng: -73.912,
   },
   {
     id: 'donor-8',
@@ -224,5 +245,7 @@ export const MOCK_SEARCHABLE_DONORS = [
     lastActive: '2 hours ago',
     donationsCompleted: 1,
     responseRate: '90%',
+    lat: 40.672,
+    lng: -73.952,
   },
 ];
