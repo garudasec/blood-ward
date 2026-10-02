@@ -23,7 +23,10 @@ import RecipientProfilePage from '../pages/recipient/RecipientProfilePage';
 import RecipientDonorSearchPage from '../pages/recipient/RecipientDonorSearchPage';
 import CreateBloodRequestPage from '../pages/recipient/CreateBloodRequestPage';
 import RecipientRequestsPage from '../pages/recipient/RecipientRequestsPage';
+
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
+import AdminDonorsPage from '../pages/admin/AdminDonorsPage';
+import AdminRecipientsPage from '../pages/admin/AdminRecipientsPage';
 
 import ProtectedRoute from './ProtectedRoute';
 import RoleRoute from './RoleRoute';
@@ -149,8 +152,8 @@ export default function AppRoutes() {
           }
         >
           <Route index element={<AdminDashboardPage />} />
-          <Route path="donors" element={<AdminDashboardPage />} />
-          <Route path="recipients" element={<AdminDashboardPage />} />
+          <Route path="donors" element={<AdminDonorsPage />} />
+          <Route path="recipients" element={<AdminRecipientsPage />} />
           <Route path="requests" element={<AdminDashboardPage />} />
           <Route path="audit-logs" element={<AdminDashboardPage />} />
         </Route>
