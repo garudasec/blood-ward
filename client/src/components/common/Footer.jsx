@@ -85,7 +85,7 @@ export default function Footer() {
         </div>
 
         <div className="pt-8 border-t border-theme text-xs text-center flex flex-col sm:flex-row items-center justify-between gap-4 text-theme-muted">
-          <p>© {new Date().getFullYear()} BloodWard. Full-stack College Project.</p>
+          <p>© {new Date().getFullYear()} BloodWard. All Right Reserved</p>
           <p className="flex items-center gap-1">
             Designed for emergency speed & privacy <Heart className="w-3.5 h-3.5 text-red-500 fill-current inline" />
           </p>
