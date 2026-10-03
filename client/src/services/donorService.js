@@ -20,6 +20,9 @@ export const donorService = {
   },
 
   async updateAvailability(availability) {
+    if (availability !== "available" && availability !== "not_available") {
+      throw new Error("Availability must be either 'available' or 'not_available'");
+    }
     try {
       const response = await api.patch("/donors/me/availability", { availability });
       return response.data;

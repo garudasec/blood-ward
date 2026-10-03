@@ -1,5 +1,5 @@
-import api from "../../services/api";
 import React, { useState, useEffect } from "react";
+import Toast from "../../components/common/Toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { donorService } from "../../services/donorService";
@@ -28,16 +28,17 @@ export default function DonorDashboardPage() {
   const [selectedRadius, setSelectedRadius] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
   const [acceptedCount, setAcceptedCount] = useState(0);
+  const [toastMessage, setToastMessage] = useState("");
 
   const fetchAvailableRequests = async () => {
     setIsLoading(true);
     try {
       const params = {};
-      if (selectedRadius && selectedRadius < 9999) {
-        params.radiusKm = selectedRadius;
+      if (selectedRadius) {
+        params.radius = selectedRadius === 9999 ? "any" : selectedRadius;
       }
-      const data = await donorService.getAvailableRequests(params);
-      setRequests(data || []);
+      const data = await requestService.getAvailableRequests(params);
+      setRequests(data?.requests || data || []);
     } catch (err) {
       console.error("Failed to fetch available requests", err);
     } finally {
@@ -70,31 +71,28 @@ export default function DonorDashboardPage() {
     };
   }, []);
 
-  const [isAvailable, setIsAvailable] = useState(user?.isAvailable ?? true);
+  const [isAvailable, setIsAvailable] = useState(user?.availability === "available");
 
   useEffect(() => {
-    if (user?.isAvailable !== undefined) {
-      setIsAvailable(user.isAvailable);
-    } else if (user?.availability !== undefined) {
-      setIsAvailable(user.availability === "Available");
-    }
-  }, [user]);
+    setIsAvailable(user?.availability === "available");
+  }, [user?.availability]);
 
   const handleToggleAvailability = async () => {
-    const nextState = !isAvailable;
-    const nextAvailability = nextState ? "Available" : "Not Available";
+    const previousState = isAvailable;
     const previousAvailability = user?.availability;
-    const previousIsAvailable = isAvailable;
+    const nextState = !isAvailable;
+    const nextAvailability = nextState ? "available" : "not_available";
 
     setIsAvailable(nextState);
-    updateUser({ availability: nextAvailability, isAvailable: nextState });
+    updateUser({ availability: nextAvailability });
     try {
       await donorService.updateAvailability(nextAvailability);
       fetchAvailableRequests();
     } catch (err) {
       console.error("Failed to update availability:", err);
-      setIsAvailable(previousIsAvailable);
-      updateUser({ availability: previousAvailability, isAvailable: previousIsAvailable });
+      setIsAvailable(previousState);
+      updateUser({ availability: previousAvailability });
+      setToastMessage(err.message || "Failed to update availability.");
     }
   };
 
@@ -129,6 +127,7 @@ export default function DonorDashboardPage() {
 
   return (
     <div className="space-y-8 pb-12">
+      <Toast message={toastMessage} onClose={() => setToastMessage("")} />
       {/* 1. WELCOME HEADER */}
       <div className="bg-slate-950 text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />

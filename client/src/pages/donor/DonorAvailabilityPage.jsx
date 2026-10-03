@@ -1,5 +1,6 @@
-import api from "../../services/api";
 import React, { useState } from "react";
+import Toast from "../../components/common/Toast";
+import { donorService } from "../../services/donorService";
 import { useAuth } from "../../context/AuthContext";
 import {
   CheckCircle2,
@@ -16,28 +17,32 @@ import DonorAvailabilityCard from "../../components/donor/DonorAvailabilityCard"
 export default function DonorAvailabilityPage() {
   const { user, updateUser } = useAuth();
   const [feedback, setFeedback] = useState(null);
+  const [toastMessage, setToastMessage] = useState("");
 
-  const isAvailable = user?.availability === "available" || user?.isAvailable;
+  const isAvailable = user?.availability === "available";
 
   const handleToggle = async () => {
     const nextState = !isAvailable;
     const nextAvailability = nextState ? "available" : "not_available";
-    updateUser({ availability: nextAvailability, isAvailable: nextState });
     try {
-      await api.patch("/donors/me/availability", { availability: nextAvailability });
+      const res = await donorService.updateAvailability(nextAvailability);
+      const canonical = res?.availability || nextAvailability;
+      updateUser({ availability: canonical });
+      setFeedback(
+        nextState
+          ? "Status updated to AVAILABLE. You are now active in emergency donor search."
+          : "Status updated to NOT AVAILABLE. Emergency alerts and search visibility paused."
+      );
+      setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
       console.error("Failed to update availability:", err);
+      setToastMessage(err.message || "Failed to update availability.");
     }
-    setFeedback(
-      nextState
-        ? "Status updated to AVAILABLE. You are now active in emergency donor search."
-        : "Status updated to NOT AVAILABLE. Emergency alerts and search visibility paused."
-    );
-    setTimeout(() => setFeedback(null), 4000);
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
+      <Toast message={toastMessage} onClose={() => setToastMessage("")} />
       {/* Header */}
       <div className="bg-theme-card p-6 sm:p-8 rounded-3xl border border-theme shadow-sm space-y-2">
         <div className="flex items-center gap-2">

@@ -62,6 +62,7 @@ const runSuite = async () => {
     phone: '9876500001',
     password,
     role: 'recipient',
+    state: 'Delhi',
     city: 'Delhi',
   });
 
@@ -71,6 +72,7 @@ const runSuite = async () => {
     phone: '9876500002',
     password,
     role: 'recipient',
+    state: 'Delhi',
     city: 'Delhi',
   });
 
@@ -82,6 +84,7 @@ const runSuite = async () => {
     role: 'donor',
     bloodGroup: 'O+',
     availability: 'available',
+    state: 'Delhi',
     city: 'Delhi',
     location: { type: 'Point', coordinates: [77.2090, 28.6139] },
   });
@@ -94,6 +97,7 @@ const runSuite = async () => {
     role: 'donor',
     bloodGroup: 'O+',
     availability: 'available',
+    state: 'Delhi',
     city: 'Delhi',
     location: { type: 'Point', coordinates: [77.2100, 28.6150] },
   });

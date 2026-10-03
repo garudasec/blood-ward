@@ -116,7 +116,7 @@ export default function DonorRegisterPage() {
         city: formData.city,
         pincode: formData.pincode,
         gender: formData.gender,
-        availability: formData.isAvailable ? "Available" : "Not Available",
+        availability: formData.isAvailable ? "available" : "not_available",
       });
 
       if (res && res.user) {

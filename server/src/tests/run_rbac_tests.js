@@ -78,11 +78,15 @@ const runTests = async () => {
     isBlocked: true,
   });
 
-  const loginUser = async (email) => {
+  const loginUser = async (email, requestedRole) => {
+    const body = { email, password };
+    if (requestedRole !== undefined) {
+      body.role = requestedRole;
+    }
     const res = await fetch(baseUrl + "/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(body),
     });
     const setCookie = res.headers.get("set-cookie");
     const data = await res.json().catch(() => ({}));
@@ -183,6 +187,47 @@ const runTests = async () => {
     headers: { Cookie: donorCookie },
   });
   record("TEST 15", "Fake query role parameter", 403, t15.status, t15.status === 403);
+
+  // LOGIN ROLE MATRIX TESTS
+  const lr1 = await loginUser(donor.email, "donor");
+  record("LOGIN MATRIX 1", "Donor credentials + requestedRole=donor", 200, lr1.status, lr1.status === 200);
+
+  const lr2 = await loginUser(donor.email, "recipient");
+  record("LOGIN MATRIX 2", "Donor credentials + requestedRole=recipient", 403, lr2.status, lr2.status === 403);
+
+  const lr3 = await loginUser(donor.email, "admin");
+  record("LOGIN MATRIX 3", "Donor credentials + requestedRole=admin", 403, lr3.status, lr3.status === 403);
+
+  const lr4 = await loginUser(recipient.email, "recipient");
+  record("LOGIN MATRIX 4", "Recipient credentials + requestedRole=recipient", 200, lr4.status, lr4.status === 200);
+
+  const lr5 = await loginUser(recipient.email, "donor");
+  record("LOGIN MATRIX 5", "Recipient credentials + requestedRole=donor", 403, lr5.status, lr5.status === 403);
+
+  const lr6 = await loginUser(recipient.email, "admin");
+  record("LOGIN MATRIX 6", "Recipient credentials + requestedRole=admin", 403, lr6.status, lr6.status === 403);
+
+  const lr7 = await loginUser(admin.email, "admin");
+  record("LOGIN MATRIX 7", "Admin credentials + requestedRole=admin", 200, lr7.status, lr7.status === 200);
+
+  const lr8 = await loginUser(admin.email, "donor");
+  record("LOGIN MATRIX 8", "Admin credentials + requestedRole=donor", 403, lr8.status, lr8.status === 403);
+
+  const lr9 = await loginUser(admin.email, "recipient");
+  record("LOGIN MATRIX 9", "Admin credentials + requestedRole=recipient", 403, lr9.status, lr9.status === 403);
+
+  const lr10 = await loginUser(donor.email);
+  record("LOGIN MATRIX 10", "Login without requestedRole (backwards compatibility)", 200, lr10.status, lr10.status === 200);
+
+  const lr11 = await loginUser(donor.email, "invalid_role");
+  record("LOGIN MATRIX 11", "Invalid requestedRole parameter", 400, lr11.status, lr11.status === 400);
+
+  const lr12Res = await fetch(baseUrl + "/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: donor.email, password: "WrongPassword!", role: "admin" }),
+  });
+  record("LOGIN MATRIX 12", "Wrong password + mismatched requestedRole returns 401", 401, lr12Res.status, lr12Res.status === 401);
 
   // Cleanup
   await User.deleteMany({ email: /.*_test_rbac@bloodward\.test$/ });

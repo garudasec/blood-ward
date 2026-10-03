@@ -5,13 +5,13 @@ import {
   Lock,
   LogIn,
   Droplet,
-  AlertCircle,
   ShieldCheck,
   HeartHandshake,
   Search,
   Activity,
 } from "lucide-react";
 import Input from "../../components/common/Input";
+import Toast from "../../components/common/Toast";
 import Button from "../../components/common/Button";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
@@ -28,7 +28,7 @@ export default function LoginPage() {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [serverError, setServerError] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
 
   const handleChange = (e) => {
     const { id, value } = e.target;
@@ -36,7 +36,7 @@ export default function LoginPage() {
     if (errors[id]) {
       setErrors((prev) => ({ ...prev, [id]: "" }));
     }
-    if (serverError) setServerError("");
+    if (toastMessage) setToastMessage("");
   };
 
   const validate = () => {
@@ -55,13 +55,21 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!validate()) return;
 
     setIsLoading(true);
-    setServerError("");
+    setToastMessage("");
 
     try {
-      const user = await authService.login(formData.email, formData.password);
+      const response = await authService.login({
+        email: formData.email,
+        password: formData.password,
+        role: selectedRole,
+      });
+
+      const user = response.user || response;
+
       login(user);
 
       if (user.role === USER_ROLES.DONOR) {
@@ -75,7 +83,8 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Login Error:", err);
-      setServerError(
+
+      setToastMessage(
         err.message || "Failed to sign in. Please verify your email and password."
       );
     } finally {
@@ -85,6 +94,7 @@ export default function LoginPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6">
+      <Toast message={toastMessage} onClose={() => setToastMessage("")} />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
 
         {/* LEFT BRAND PANEL */}
@@ -170,11 +180,10 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setSelectedRole(USER_ROLES.DONOR)}
-                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  selectedRole === USER_ROLES.DONOR
+                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${selectedRole === USER_ROLES.DONOR
                     ? "bg-red-600 text-white shadow-md"
                     : "text-theme-secondary hover:text-theme-primary hover:bg-theme-hover"
-                }`}
+                  }`}
               >
                 <HeartHandshake className="w-3.5 h-3.5" />
                 Donor
@@ -183,11 +192,10 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setSelectedRole(USER_ROLES.RECIPIENT)}
-                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  selectedRole === USER_ROLES.RECIPIENT
+                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${selectedRole === USER_ROLES.RECIPIENT
                     ? "bg-red-600 text-white shadow-md"
                     : "text-theme-secondary hover:text-theme-primary hover:bg-theme-hover"
-                }`}
+                  }`}
               >
                 <Search className="w-3.5 h-3.5" />
                 Recipient
@@ -196,26 +204,17 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setSelectedRole(USER_ROLES.ADMIN)}
-                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  selectedRole === USER_ROLES.ADMIN
+                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${selectedRole === USER_ROLES.ADMIN
                     ? "bg-slate-900 text-white shadow-md"
                     : "text-theme-secondary hover:text-theme-primary hover:bg-theme-hover"
-                }`}
+                  }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Admin
               </button>
             </div>
 
-            {serverError && (
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold">Authentication Error</p>
-                  <p>{serverError}</p>
-                </div>
-              </div>
-            )}
+
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
@@ -226,8 +225,8 @@ export default function LoginPage() {
                   selectedRole === USER_ROLES.DONOR
                     ? "donor@example.com"
                     : selectedRole === USER_ROLES.RECIPIENT
-                    ? "recipient@example.com"
-                    : "admin@bloodward.org"
+                      ? "recipient@example.com"
+                      : "admin@bloodward.com"
                 }
                 value={formData.email}
                 onChange={handleChange}
