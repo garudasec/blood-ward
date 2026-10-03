@@ -5,12 +5,13 @@ import Button from "../common/Button";
 export default function DonorAvailabilityCard({ isAvailable, onToggle }) {
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const handleToggleClick = () => {
+  const handleToggleClick = async () => {
     setIsUpdating(true);
-    setTimeout(() => {
-      onToggle();
+    try {
+      await onToggle();
+    } finally {
       setIsUpdating(false);
-    }, 400);
+    }
   };
 
   return (

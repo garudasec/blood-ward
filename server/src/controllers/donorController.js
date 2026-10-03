@@ -35,7 +35,23 @@ export const getDonorProfile = async (req, res, next) => {
  */
 export const updateDonorProfile = async (req, res, next) => {
   try {
-    const { bloodGroup, state, city, pincode, fullName, phone, gender, availability, isAvailable } = req.body;
+    const { bloodGroup, state, city, pincode, fullName, phone, gender, availability, isAvailable, location } = req.body;
+
+    if (location !== undefined && location !== null) {
+      if (
+        !location.coordinates ||
+        !Array.isArray(location.coordinates) ||
+        !isValidGeoCoordinates(location.coordinates[0], location.coordinates[1])
+      ) {
+        return next(
+          new AppError("Invalid location coordinates provided. Longitude [-180, 180], Latitude [-90, 90].", 400)
+        );
+      }
+      req.user.location = {
+        type: "Point",
+        coordinates: [Number(location.coordinates[0]), Number(location.coordinates[1])],
+      };
+    }
 
     if (availability !== undefined || isAvailable !== undefined) {
       const targetAvail = availability || (isAvailable !== undefined ? (isAvailable ? "available" : "not_available") : null);

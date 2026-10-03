@@ -1,5 +1,5 @@
-import api from "../../services/api";
 import React, { useState, useEffect } from "react";
+import { donorService } from "../../services/donorService";
 import { useAuth } from "../../context/AuthContext";
 import {
   User,
@@ -53,7 +53,7 @@ export default function DonorProfilePage() {
         state: user.state || "",
         city: user.city || user.location || "",
         pincode: user.pincode || "",
-        isAvailable: user.isAvailable ?? (user.availability === "Available" || user.availability === "available"),
+        isAvailable: user.availability === "available",
       });
     }
   }, [user]);
@@ -101,27 +101,26 @@ export default function DonorProfilePage() {
     try {
       const payload = {
         fullName: formData.fullName,
-        email: formData.email,
         phone: formData.phone,
         bloodGroup: formData.bloodGroup,
         gender: formData.gender,
         state: formData.state,
         city: formData.city,
         pincode: formData.pincode,
-        availability: formData.isAvailable ? "Available" : "Not Available",
-        isAvailable: formData.isAvailable,
+        availability: formData.isAvailable ? "available" : "not_available",
       };
 
-      const updatedUser = await api.put("/donors/me/profile", payload);
+      const res = await donorService.updateProfile(payload);
+      const updatedUser = res?.donor || res?.user || res?.data || res;
       if (updatedUser) {
-        updateUser(updatedUser.data?.user || updatedUser.data || payload);
+        updateUser(updatedUser);
       }
       setNotice("Donor profile updated successfully!");
       setIsEditing(false);
       setTimeout(() => setNotice(""), 4000);
     } catch (err) {
       console.error("Failed to save donor profile:", err);
-      setErrorNotice(err.response?.data?.message || err.message || "Failed to update profile.");
+      setErrorNotice(err.message || "Failed to update profile.");
     } finally {
       setIsSaving(false);
     }

@@ -26,8 +26,8 @@ export default function DonorHistoryPage() {
     setError("");
     try {
       const res = await requestService.getDonorHistory();
-      if (res && res.history) {
-        setHistory(res.history);
+      if (res && res.requests) {
+        setHistory(res.requests);
       } else {
         setHistory([]);
       }

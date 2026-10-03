@@ -18,7 +18,11 @@ export default function DonorLayout() {
   const { user, updateUser, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isAvailable, setIsAvailable] = useState(user?.isAvailable ?? true);
+  const [isAvailable, setIsAvailable] = useState(user?.availability === "available");
+
+  React.useEffect(() => {
+    setIsAvailable(user?.availability === "available");
+  }, [user?.availability]);
 
   const handleLogout = async () => {
     await logout();
@@ -26,16 +30,18 @@ export default function DonorLayout() {
   };
 
   const toggleAvailability = async () => {
+    const previousState = isAvailable;
+    const nextState = !isAvailable;
+    const nextAvailability = nextState ? "available" : "not_available";
+
+    setIsAvailable(nextState);
     try {
-      const nextState = !isAvailable;
-      setIsAvailable(nextState);
-      const updated = await donorService.updateAvailability(nextState);
-      if (updated) {
-        updateUser(updated);
-      }
+      const res = await donorService.updateAvailability(nextAvailability);
+      const canonical = res?.availability || nextAvailability;
+      updateUser({ availability: canonical });
     } catch (err) {
       console.error("Failed to update availability", err);
-      setIsAvailable(user?.isAvailable ?? true);
+      setIsAvailable(previousState);
     }
   };
 

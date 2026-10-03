@@ -46,8 +46,8 @@ export default function DonorRequestsPage() {
         setRequests(res.requests);
       }
       const historyRes = await requestService.getDonorHistory();
-      if (historyRes && historyRes.history) {
-        const activeAccepted = historyRes.history.filter(
+      if (historyRes && historyRes.requests) {
+        const activeAccepted = historyRes.requests.filter(
           (r) => r.status === "Donor Accepted" || r.status === "In Progress"
         );
         setAcceptedRequests(activeAccepted);

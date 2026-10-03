@@ -38,39 +38,39 @@
 }
 
 [data-theme="light"] {
-  --color-bg-main: #F4F5F7;
-  --color-bg-surface: #ECEEF2;
-  --color-bg-card: #FFFFFF;
-  --color-bg-elevated: #FAFAFB;
-  --color-bg-subtle: #ECEEF2;
-  --color-bg-hover: #F1F5F9;
+  --color-bg-main: #F6F1E8;
+  --color-bg-surface: #EFE8DC;
+  --color-bg-card: #FBF8F2;
+  --color-bg-elevated: #FFFDF9;
+  --color-bg-subtle: #EFE8DC;
+  --color-bg-hover: #E7E0D2;
 
-  --color-text-primary: #172033;
-  --color-text-secondary: #596579;
-  --color-text-muted: #7A8494;
+  --color-text-primary: #292524;
+  --color-text-secondary: #6B6258;
+  --color-text-muted: #8C8275;
 
-  --color-border: #D9DEE7;
-  --color-border-subtle: #E2E8F0;
+  --color-border: #DDD4C6;
+  --color-border-subtle: #E8E1D5;
 
-  --color-header-top: #FFFFFF;
-  --color-header-nav: #ECEEF2;
-  --color-header-border: #D9DEE7;
+  --color-header-top: #FBF8F2;
+  --color-header-nav: #EFE8DC;
+  --color-header-border: #DDD4C6;
 
-  --color-input-bg: #FFFFFF;
-  --color-input-border: #D9DEE7;
-  --color-input-text: #172033;
-  --color-input-placeholder: #7A8494;
+  --color-input-bg: #FBF8F2;
+  --color-input-border: #DDD4C6;
+  --color-input-text: #292524;
+  --color-input-placeholder: #8C8275;
 
-  --color-modal-bg: #FFFFFF;
-  --color-modal-header: #FAFAFB;
-  --color-modal-footer: #F4F5F7;
+  --color-modal-bg: #FBF8F2;
+  --color-modal-header: #EFE8DC;
+  --color-modal-footer: #EFE8DC;
 
-  --color-table-header: #ECEEF2;
-  --color-table-row-hover: #FAFAFB;
+  --color-table-header: #EFE8DC;
+  --color-table-row-hover: rgba(231, 224, 210, 0.5);
 
-  --scrollbar-track: #F4F5F7;
-  --scrollbar-thumb: #D9DEE7;
-  --scrollbar-thumb-hover: #7A8494;
+  --scrollbar-track: #F6F1E8;
+  --scrollbar-thumb: #DDD4C6;
+  --scrollbar-thumb-hover: #8C8275;
 }
 
 @layer base {
@@ -104,6 +104,12 @@
 .bg-theme-modal-footer { background-color: var(--color-modal-footer); }
 
 .bg-theme-table-header { background-color: var(--color-table-header); }
+
+.bg-theme-input { background-color: var(--color-input-bg); }
+.border-theme-input { border-color: var(--color-input-border); }
+.text-theme-input { color: var(--color-input-text); }
+.placeholder-theme-muted::placeholder { color: var(--color-input-placeholder); }
+.border-theme-header { border-color: var(--color-header-border); }
 
 .text-theme-primary { color: var(--color-text-primary); }
 .text-theme-secondary { color: var(--color-text-secondary); }

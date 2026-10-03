@@ -158,10 +158,15 @@ export const registerRecipient = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role: requestedRole } = req.body;
 
     if (!email || !password) {
       return next(new AppError("Please provide both email address and password.", 400));
+    }
+
+    const ALLOWED_ROLES = ["admin", "donor", "recipient"];
+    if (requestedRole !== undefined && !ALLOWED_ROLES.includes(requestedRole)) {
+      return next(new AppError("Invalid role requested.", 400));
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -188,6 +193,21 @@ export const login = async (req, res, next) => {
     const isPasswordCorrect = await user.comparePassword(password);
     if (!isPasswordCorrect) {
       return next(new AppError("Invalid email or password.", 401));
+    }
+
+    if (requestedRole && requestedRole !== user.role) {
+      const roleDisplayNames = {
+        admin: "Admin",
+        donor: "Donor",
+        recipient: "Recipient",
+      };
+      const actualRoleLabel = roleDisplayNames[user.role] || user.role;
+      return next(
+        new AppError(
+          `This account is registered as a ${actualRoleLabel}. Please select ${actualRoleLabel} login.`,
+          403
+        )
+      );
     }
 
     user.lastActiveAt = new Date();
