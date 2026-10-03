@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   Search,
@@ -19,6 +19,7 @@ import BloodGroupBadge from '../../components/common/BloodGroupBadge';
 import Button from '../../components/common/Button';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { BLOOD_GROUPS } from '../../constants/theme';
+import { adminService } from '../../services/adminService';
 
 export default function AdminDonorsPage() {
   const [donors, setDonors] = useState([]);
@@ -28,42 +29,78 @@ export default function AdminDonorsPage() {
   const [feedback, setFeedback] = useState('');
   const [targetDonorForDelete, setTargetDonorForDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleToggleBlock = (donorId) => {
-    setDonors((prev) =>
-      prev.map((d) => {
-        if (d.id === donorId) {
-          const newStatus = d.accountStatus === 'Active' ? 'Blocked' : 'Active';
-          setFeedback(`Donor ${d.fullName} account status changed to ${newStatus}. Logged in audit trail.`);
-          return { ...d, accountStatus: newStatus };
-        }
-        return d;
-      })
-    );
-    setTimeout(() => setFeedback(''), 4000);
+  const fetchDonors = async () => {
+    setIsLoading(true);
+    try {
+      const params = { role: 'donor' };
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      const res = await adminService.getUsers(params);
+      if (res && res.users) {
+        setDonors(
+          res.users.map((u) => ({
+            id: u.id,
+            fullName: u.fullName,
+            email: u.email,
+            phone: u.phone,
+            bloodGroup: u.bloodGroup || 'N/A',
+            city: u.city || 'N/A',
+            isAvailable: u.availability === 'available',
+            accountStatus: u.isBlocked ? 'Blocked' : 'Active',
+            isBlocked: u.isBlocked,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to fetch donors:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleConfirmDelete = () => {
+  useEffect(() => {
+    fetchDonors();
+  }, [searchQuery]);
+
+  const handleToggleBlock = async (donorId) => {
+    const target = donors.find((d) => d.id === donorId);
+    if (!target) return;
+    try {
+      if (target.isBlocked) {
+        await adminService.unblockUser(donorId);
+        setFeedback(`Donor ${target.fullName} unblocked successfully.`);
+      } else {
+        await adminService.blockUser(donorId);
+        setFeedback(`Donor ${target.fullName} blocked successfully.`);
+      }
+      fetchDonors();
+      setTimeout(() => setFeedback(''), 4000);
+    } catch (err) {
+      alert(err.message || 'Action failed.');
+    }
+  };
+
+  const handleConfirmDelete = async () => {
     if (!targetDonorForDelete) return;
     setIsDeleting(true);
-    setTimeout(() => {
-      setDonors((prev) => prev.filter((d) => d.id !== targetDonorForDelete.id));
-      setIsDeleting(false);
-      setFeedback(`Donor ${targetDonorForDelete.fullName} account deactivated and audit logged.`);
+    try {
+      await adminService.deactivateUser(targetDonorForDelete.id);
+      setFeedback(`Donor ${targetDonorForDelete.fullName} account deactivated.`);
       setTargetDonorForDelete(null);
+      fetchDonors();
       setTimeout(() => setFeedback(''), 4000);
-    }, 400);
+    } catch (err) {
+      alert(err.message || 'Deactivation failed.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filteredDonors = donors.filter((donor) => {
-    const matchesSearch =
-      donor.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      donor.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      donor.phone.includes(searchQuery) ||
-      donor.city.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesGroup = bloodGroupFilter === 'ALL' || donor.bloodGroup === bloodGroupFilter;
     const matchesStatus = statusFilter === 'ALL' || donor.accountStatus === statusFilter;
-    return matchesSearch && matchesGroup && matchesStatus;
+    return matchesGroup && matchesStatus;
   });
 
   return (
@@ -83,6 +120,14 @@ export default function AdminDonorsPage() {
             View, audit, block/unblock, or deactivate blood donor registrations
           </p>
         </div>
+
+        <button
+          onClick={fetchDonors}
+          className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
+          title="Refresh donors"
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {/* Feedback Banner */}
@@ -99,86 +144,67 @@ export default function AdminDonorsPage() {
       )}
 
       {/* Search & Filter Bar */}
-      <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+      <div className="bg-theme-card p-4 sm:p-6 rounded-3xl border border-theme shadow-sm space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+            <Search className="w-4 h-4 text-theme-muted absolute left-3.5 top-3" />
             <input
               type="text"
               placeholder="Search name, email, phone, city..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+              className="w-full text-xs rounded-xl border border-theme bg-theme-surface text-theme-primary pl-9 pr-3 py-2.5 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-500">Blood Group:</span>
+          <div className="flex items-center gap-1.5 bg-theme-surface px-3 py-2 rounded-xl border border-theme text-xs">
+            <Filter className="w-3.5 h-3.5 text-theme-muted" />
+            <span className="text-theme-muted">Blood Group:</span>
             <select
               value={bloodGroupFilter}
               onChange={(e) => setBloodGroupFilter(e.target.value)}
-              className="font-bold text-slate-800 bg-transparent outline-none cursor-pointer w-full"
+              className="font-bold text-theme-primary bg-transparent outline-none cursor-pointer w-full"
             >
-              <option value="ALL">All Groups</option>
-              {BLOOD_GROUPS.map((bg) => (
-                <option key={bg} value={bg}>
-                  {bg}
+              <option className="bg-theme-card text-theme-primary" value="ALL">All Blood Groups</option>
+              {BLOOD_GROUPS.map((g) => (
+                <option className="bg-theme-card text-theme-primary" key={g.value} value={g.value}>
+                  {g.label}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-500">Account Status:</span>
+          <div className="flex items-center gap-1.5 bg-theme-surface px-3 py-2 rounded-xl border border-theme text-xs">
+            <Filter className="w-3.5 h-3.5 text-theme-muted" />
+            <span className="text-theme-muted">Account Status:</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="font-bold text-slate-800 bg-transparent outline-none cursor-pointer w-full"
+              className="font-bold text-theme-primary bg-transparent outline-none cursor-pointer w-full"
             >
-              <option value="ALL">All Statuses</option>
-              <option value="Active">Active Only</option>
-              <option value="Blocked">Blocked Only</option>
+              <option className="bg-theme-card text-theme-primary" value="ALL">All Statuses</option>
+              <option className="bg-theme-card text-theme-primary" value="Active">Active Only</option>
+              <option className="bg-theme-card text-theme-primary" value="Blocked">Blocked Only</option>
             </select>
           </div>
         </div>
-
-        {(searchQuery || bloodGroupFilter !== 'ALL' || statusFilter !== 'ALL') && (
-          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
-            <span className="text-slate-500">
-              Showing {filteredDonors.length} matching donors
-            </span>
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setBloodGroupFilter('ALL');
-                setStatusFilter('ALL');
-              }}
-              className="text-red-600 font-bold hover:underline"
-            >
-              Clear Filters
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Donors Table / Card View */}
+      {/* Donors Table */}
       {filteredDonors.length === 0 ? (
-        <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+        <div className="bg-theme-card p-12 rounded-3xl border border-theme text-center space-y-3">
           <Inbox className="w-10 h-10 text-slate-300 mx-auto" />
-          <h3 className="font-extrabold text-slate-800 text-base">No donors match criteria</h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
+          <h3 className="font-extrabold text-theme-primary text-base">No donors match criteria</h3>
+          <p className="text-xs text-theme-secondary max-w-md mx-auto">
             Try adjusting your search keywords or resetting filters.
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          {/* Desktop Table View */}
-          <div className="hidden lg:block overflow-x-auto">
+        <div className="bg-theme-card rounded-3xl border border-theme shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <tr className="bg-theme-table-header border-b border-theme text-[11px] font-bold uppercase tracking-wider text-theme-secondary">
                   <th className="py-3.5 px-6">Donor Info</th>
                   <th className="py-3.5 px-6">Blood Group</th>
                   <th className="py-3.5 px-6">Location</th>
@@ -187,21 +213,21 @@ export default function AdminDonorsPage() {
                   <th className="py-3.5 px-6 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+              <tbody className="divide-y divide-theme text-xs text-theme-secondary">
                 {filteredDonors.map((donor) => (
-                  <tr key={donor.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={donor.id} className="hover:bg-theme-surface/80 transition-colors">
                     <td className="py-4 px-6">
-                      <div className="font-bold text-slate-900">{donor.fullName}</div>
-                      <div className="text-[11px] text-slate-500 flex items-center gap-2 pt-0.5">
-                        <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-slate-400" />{donor.email}</span>
+                      <div className="font-bold text-theme-primary">{donor.fullName}</div>
+                      <div className="text-[11px] text-theme-muted flex items-center gap-2 pt-0.5">
+                        <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-theme-muted" />{donor.email}</span>
                         <span>•</span>
-                        <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-slate-400" />{donor.phone}</span>
+                        <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-theme-muted" />{donor.phone}</span>
                       </div>
                     </td>
                     <td className="py-4 px-6">
                       <BloodGroupBadge group={donor.bloodGroup} size="sm" />
                     </td>
-                    <td className="py-4 px-6 font-semibold text-slate-800">
+                    <td className="py-4 px-6 font-semibold text-theme-primary">
                       {donor.city}
                     </td>
                     <td className="py-4 px-6">
@@ -210,7 +236,7 @@ export default function AdminDonorsPage() {
                           <CheckCircle2 className="w-3 h-3" /> Available
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-theme-subtle px-2.5 py-0.5 rounded-full border border-theme text-theme-muted">
                           Not Available
                         </span>
                       )}
@@ -231,7 +257,7 @@ export default function AdminDonorsPage() {
                         onClick={() => handleToggleBlock(donor.id)}
                         className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
                           donor.accountStatus === 'Active'
-                            ? 'bg-slate-100 hover:bg-rose-100 text-slate-700 hover:text-rose-700'
+                            ? 'bg-theme-subtle hover:bg-rose-500/20 text-theme-secondary hover:text-rose-600'
                             : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
                         }`}
                       >
@@ -251,66 +277,9 @@ export default function AdminDonorsPage() {
               </tbody>
             </table>
           </div>
-
-          {/* Mobile Card List Fallback */}
-          <div className="lg:hidden divide-y divide-slate-100">
-            {filteredDonors.map((donor) => (
-              <div key={donor.id} className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-extrabold text-slate-900 text-sm">{donor.fullName}</h4>
-                    <BloodGroupBadge group={donor.bloodGroup} size="sm" />
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      donor.accountStatus === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                    }`}
-                  >
-                    {donor.accountStatus}
-                  </span>
-                </div>
-
-                <div className="text-xs text-slate-600 space-y-1">
-                  <p>{donor.email}</p>
-                  <p>{donor.phone}</p>
-                  <p>Location: <strong>{donor.city}</strong></p>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <button
-                    onClick={() => handleToggleBlock(donor.id)}
-                    className="text-xs font-bold text-slate-700 hover:text-slate-900 underline"
-                  >
-                    {donor.accountStatus === 'Active' ? 'Block Account' : 'Unblock Account'}
-                  </button>
-
-                  <button
-                    onClick={() => setTargetDonorForDelete(donor)}
-                    className="text-xs font-bold text-rose-600 hover:underline"
-                  >
-                    Deactivate Donor
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Pagination Footer */}
-          <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-            <span>Showing {filteredDonors.length} of {donors.length} donor accounts</span>
-            <div className="flex items-center gap-2">
-              <button disabled className="px-3 py-1 rounded bg-slate-200 text-slate-400 font-semibold cursor-not-allowed">
-                Prev
-              </button>
-              <button disabled className="px-3 py-1 rounded bg-slate-200 text-slate-400 font-semibold cursor-not-allowed">
-                Next
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* Confirmation Modal */}
       <ConfirmDialog
         isOpen={!!targetDonorForDelete}
         title="Deactivate Donor Account"

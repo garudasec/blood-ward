@@ -6,6 +6,7 @@ import {
   getRequestById,
   acceptBloodRequest,
   rejectBloodRequest,
+  getDonorHistory,
   markInProgress,
   fulfillBloodRequest,
   cancelBloodRequest,
@@ -20,6 +21,7 @@ router.get('/my', protect, restrictTo('recipient'), getMyRequests);
 
 // Available active requests for donors
 router.get('/available', protect, restrictTo('donor'), getAvailableRequests);
+router.get('/donor/history', protect, restrictTo('donor'), getDonorHistory);
 
 // Ownership-aware request details
 router.get('/:id', protect, getRequestById);

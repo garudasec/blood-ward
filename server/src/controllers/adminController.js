@@ -3,6 +3,7 @@ import BloodRequest from '../models/bloodRequest.js';
 import AuditLog from '../models/auditLog.js';
 import AppError from '../utils/appError.js';
 import { logAuditEvent } from '../utils/auditLogger.js';
+import { emitToUser } from '../socket.js';
 import { sanitizeBloodRequest } from '../utils/requestSanitizer.js';
 
 /**
@@ -397,6 +398,7 @@ export const cancelAdminRequest = async (req, res, next) => {
     bloodRequest.status = 'Cancelled';
     await bloodRequest.save({ validateBeforeSave: false });
 
+    const acPayload = { requestId: id, status: 'Cancelled' }; if (bloodRequest.recipient) emitToUser(bloodRequest.recipient, 'bloodRequest:cancelled', acPayload); if (bloodRequest.acceptedDonor) emitToUser(bloodRequest.acceptedDonor, 'bloodRequest:cancelled', acPayload);
     logAuditEvent({
       actor: req.user._id,
       actorName: req.user.fullName,

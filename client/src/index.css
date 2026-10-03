@@ -1,48 +1,133 @@
 @import "tailwindcss";
 
+:root,
+[data-theme="dark"] {
+  --color-bg-main: #0b0f19;
+  --color-bg-surface: #0f172a;
+  --color-bg-card: #1e293b;
+  --color-bg-elevated: #0f172a;
+  --color-bg-subtle: #1e293b;
+  --color-bg-hover: #334155;
+
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+
+  --color-border: #334155;
+  --color-border-subtle: #1e293b;
+
+  --color-header-top: #0f172a;
+  --color-header-nav: #1e293b;
+  --color-header-border: #1e293b;
+
+  --color-input-bg: #0f172a;
+  --color-input-border: #334155;
+  --color-input-text: #f8fafc;
+  --color-input-placeholder: #64748b;
+
+  --color-modal-bg: #1e293b;
+  --color-modal-header: #0f172a;
+  --color-modal-footer: #0f172a;
+
+  --color-table-header: #0f172a;
+  --color-table-row-hover: rgba(51, 65, 85, 0.4);
+
+  --scrollbar-track: #0f172a;
+  --scrollbar-thumb: #334155;
+  --scrollbar-thumb-hover: #475569;
+}
+
+[data-theme="light"] {
+  --color-bg-main: #F4F5F7;
+  --color-bg-surface: #ECEEF2;
+  --color-bg-card: #FFFFFF;
+  --color-bg-elevated: #FAFAFB;
+  --color-bg-subtle: #ECEEF2;
+  --color-bg-hover: #F1F5F9;
+
+  --color-text-primary: #172033;
+  --color-text-secondary: #596579;
+  --color-text-muted: #7A8494;
+
+  --color-border: #D9DEE7;
+  --color-border-subtle: #E2E8F0;
+
+  --color-header-top: #FFFFFF;
+  --color-header-nav: #ECEEF2;
+  --color-header-border: #D9DEE7;
+
+  --color-input-bg: #FFFFFF;
+  --color-input-border: #D9DEE7;
+  --color-input-text: #172033;
+  --color-input-placeholder: #7A8494;
+
+  --color-modal-bg: #FFFFFF;
+  --color-modal-header: #FAFAFB;
+  --color-modal-footer: #F4F5F7;
+
+  --color-table-header: #ECEEF2;
+  --color-table-row-hover: #FAFAFB;
+
+  --scrollbar-track: #F4F5F7;
+  --scrollbar-thumb: #D9DEE7;
+  --scrollbar-thumb-hover: #7A8494;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 80px;
   }
-  :root {
-    --primary: 348 83% 47%;
-    --primary-foreground: 0 0% 100%;
-    --bg-main: 210 40% 98%;
-    --surface: 0 0% 100%;
-  }
 
   body {
-    @apply bg-slate-50 text-slate-900 antialiased min-h-screen font-sans selection:bg-red-500 selection:text-white;
+    background-color: var(--color-bg-main);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
-/* Custom scrollbars & glassmorphism utilities */
+/* Custom Semantic Theme Utilities */
+.bg-theme-main { background-color: var(--color-bg-main); }
+.bg-theme-surface { background-color: var(--color-bg-surface); }
+.bg-theme-card { background-color: var(--color-bg-card); }
+.bg-theme-card-elevated { background-color: var(--color-bg-elevated); }
+.bg-theme-subtle { background-color: var(--color-bg-subtle); }
+.bg-theme-hover:hover { background-color: var(--color-bg-hover); }
+
+.bg-theme-header-top { background-color: var(--color-header-top); }
+.bg-theme-header-nav { background-color: var(--color-header-nav); }
+
+.bg-theme-modal { background-color: var(--color-modal-bg); }
+.bg-theme-modal-header { background-color: var(--color-modal-header); }
+.bg-theme-modal-footer { background-color: var(--color-modal-footer); }
+
+.bg-theme-table-header { background-color: var(--color-table-header); }
+
+.text-theme-primary { color: var(--color-text-primary); }
+.text-theme-secondary { color: var(--color-text-secondary); }
+.text-theme-muted { color: var(--color-text-muted); }
+
+.border-theme { border-color: var(--color-border); }
+.border-theme-subtle { border-color: var(--color-border-subtle); }
+.divide-theme > * + * { border-color: var(--color-border); }
+
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-.glass-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-}
-
-.hero-gradient {
-  background: radial-gradient(circle at 50% 0%, rgba(239, 68, 68, 0.08) 0%, rgba(255, 255, 255, 0) 70%);
+  background: var(--scrollbar-thumb-hover);
 }

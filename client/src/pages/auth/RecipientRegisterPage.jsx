@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   User,
   Mail,
@@ -12,79 +12,83 @@ import {
   ShieldCheck,
   Activity,
   AlertCircle,
-} from 'lucide-react';
-import Input from '../../components/common/Input';
-import Select from '../../components/common/Select';
-import Button from '../../components/common/Button';
-import { GENDER_OPTIONS } from '../../constants/theme';
-import { useAuth } from '../../context/AuthContext';
-import { authService } from '../../services/authService';
-import { INDIA_STATES_AND_CITIES, INDIAN_STATES_LIST } from '../../constants/indiaLocations';
+} from "lucide-react";
+import Input from "../../components/common/Input";
+import Select from "../../components/common/Select";
+import Button from "../../components/common/Button";
+import { GENDER_OPTIONS } from "../../constants/theme";
+import { useAuth } from "../../context/AuthContext";
+import { authService } from "../../services/authService";
+import { INDIA_STATES_AND_CITIES, INDIAN_STATES_LIST } from "../../constants/indiaLocations";
 
 export default function RecipientRegisterPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    phone: '',
-    state: '',
-    location: '',
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    phone: "",
+    gender: "",
+    state: "",
+    location: "",
   });
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [serverNotice, setServerNotice] = useState('');
+  const [serverNotice, setServerNotice] = useState("");
 
   const handleChange = (e) => {
     const { id, value } = e.target;
 
-    if (id === 'state') {
+    if (id === "state") {
       setFormData((prev) => ({
         ...prev,
         state: value,
-        location: '',
+        location: "",
       }));
     } else {
-      setFormData((prev) => ({ ...prev, [id]: value }));
+      setFormData((prev) => ({
+        ...prev,
+        [id]: value,
+      }));
     }
 
     if (errors[id]) {
-      setErrors((prev) => ({ ...prev, [id]: '' }));
+      setErrors((prev) => ({ ...prev, [id]: "" }));
     }
-    if (serverNotice) setServerNotice('');
+    if (serverNotice) setServerNotice("");
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.fullName.trim()) newErrors.fullName = 'Full Name is required';
+    if (!formData.fullName.trim()) newErrors.fullName = "Full Name is required";
     if (!formData.email.trim()) {
-      newErrors.email = 'Email address is required';
+      newErrors.email = "Email address is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Valid email address required';
+      newErrors.email = "Valid email address required";
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = "Password is required";
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = "Password must be at least 6 characters";
     }
 
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = "Passwords do not match";
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
+      newErrors.phone = "Phone number is required";
     } else if (!/^[0-9+\-\s()]{8,15}$/.test(formData.phone)) {
-      newErrors.phone = 'Enter a valid phone number';
+      newErrors.phone = "Enter a valid phone number";
     }
 
-    if (!formData.state) newErrors.state = 'State / UT selection is required';
-    if (!formData.location) newErrors.location = 'City selection is required';
+    if (!formData.state) newErrors.state = "State / UT selection is required";
+    if (!formData.location) newErrors.location = "City selection is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -95,56 +99,61 @@ export default function RecipientRegisterPage() {
     if (!validateForm()) return;
 
     setIsLoading(true);
-    setServerNotice('');
+    setServerNotice("");
     try {
       const res = await authService.registerRecipient({
         fullName: formData.fullName,
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
+        gender: formData.gender,
         state: formData.state,
         city: formData.location,
-        gender: formData.gender,
       });
-      if (res.success && res.user) {
+
+      if (res && res.user) {
         login(res.user);
-        navigate('/recipient');
+        navigate("/recipient");
+      } else {
+        navigate("/login");
       }
     } catch (err) {
-      setServerNotice(err.message || 'Recipient registration failed.');
+      console.error("Recipient Registration Error:", err);
+      setServerNotice(err.message || "Failed to complete recipient registration.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const cityOptions = formData.state ? (INDIA_STATES_AND_CITIES[formData.state] || []) : [];
+  const cityOptions = formData.state && INDIA_STATES_AND_CITIES[formData.state]
+    ? INDIA_STATES_AND_CITIES[formData.state]
+    : [];
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
-      <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-stretch">
+    <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
 
-        {/* LEFT PANEL */}
-        <div className="lg:col-span-5 bg-slate-900 text-white p-8 sm:p-10 rounded-3xl border border-slate-800 shadow-2xl flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-red-900/10 rounded-full blur-3xl pointer-events-none" />
+        {/* LEFT BRAND PANEL */}
+        <div className="lg:col-span-5 bg-slate-950 text-white p-8 sm:p-10 rounded-3xl border border-slate-800 shadow-2xl flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-[80px] pointer-events-none" />
 
-          <div className="relative z-10 space-y-8">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/30">
-                  <Droplet className="w-7 h-7 fill-current" />
+          <div className="relative z-10 space-y-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/30">
+                  <Droplet className="w-6 h-6 fill-current" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-extrabold tracking-tight text-white">
-                    Blood<span className="text-red-500">Ward</span>
-                  </h1>
+                  <span className="text-xl font-extrabold tracking-tight">
+                    Blood<span className="text-blue-400">Ward</span>
+                  </span>
                   <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase block -mt-1">
                     Emergency Network
                   </span>
                 </div>
               </div>
               <p className="text-sm text-slate-300 leading-relaxed pt-2 font-light">
-                Request emergency blood assistance in India and connect with nearby verified donors instantly.
+                Find available voluntary blood donors near your hospital and broadcast emergency requests in real time.
               </p>
             </div>
 
@@ -189,24 +198,24 @@ export default function RecipientRegisterPage() {
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="lg:col-span-7 bg-white p-8 sm:p-10 rounded-3xl border border-slate-200/80 shadow-xl flex flex-col justify-between">
+        {/* RIGHT FORM PANEL */}
+        <div className="lg:col-span-7 bg-theme-card p-8 sm:p-10 rounded-3xl border border-theme shadow-xl flex flex-col justify-between transition-colors">
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+              <h2 className="text-2xl font-bold text-theme-primary tracking-tight">
                 Create an Account
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-theme-muted mt-1">
                 Register as a Blood Recipient to search donors and issue urgent blood requests.
               </p>
             </div>
 
             {/* Role Switcher Tabs */}
-            <div className="bg-slate-100 p-1.5 rounded-2xl flex items-center gap-1.5 border border-slate-200/60">
+            <div className="bg-theme-subtle p-1.5 rounded-2xl flex items-center gap-1.5 border border-theme">
               <button
                 type="button"
-                onClick={() => navigate('/register/donor')}
-                className="flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                onClick={() => navigate("/register/donor")}
+                className="flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-hover cursor-pointer"
               >
                 <HeartHandshake className="w-3.5 h-3.5" />
                 Donor
@@ -214,7 +223,7 @@ export default function RecipientRegisterPage() {
 
               <button
                 type="button"
-                className="flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 bg-red-600 text-white shadow-md"
+                className="flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 bg-red-600 text-white shadow-md cursor-pointer"
               >
                 <Search className="w-3.5 h-3.5" />
                 Recipient
@@ -222,7 +231,7 @@ export default function RecipientRegisterPage() {
             </div>
 
             {serverNotice && (
-              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2.5">
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <p>{serverNotice}</p>
               </div>
@@ -344,9 +353,9 @@ export default function RecipientRegisterPage() {
             </form>
           </div>
 
-          <div className="pt-6 mt-6 border-t border-slate-100 text-center text-xs text-slate-600">
-            Already have a Recipient account?{' '}
-            <Link to="/login" className="text-red-600 font-bold hover:underline">
+          <div className="pt-6 mt-6 border-t border-theme text-center text-xs text-theme-muted">
+            Already have a Recipient account?{" "}
+            <Link to="/login" className="text-red-600 dark:text-red-400 font-bold hover:underline">
               Sign In here
             </Link>
           </div>

@@ -1,43 +1,79 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { requestService } from "../../services/requestService";
+import { socketService } from "../../services/socketService";
 import {
   Search,
   PlusCircle,
   AlertTriangle,
-  FileText,
-  MapPin,
-  Clock,
-  HeartHandshake,
-  ArrowRight,
-  Inbox,
-  User,
   Activity,
-  CheckCircle2,
-} from 'lucide-react';
-import Button from '../../components/common/Button';
-import RecipientSummaryStats from '../../components/recipient/RecipientSummaryStats';
-import RecipientRequestSummaryCard from '../../components/recipient/RecipientRequestSummaryCard';
+  Inbox,
+  Clock,
+  MapPin,
+} from "lucide-react";
+import Button from "../../components/common/Button";
+import RecipientSummaryStats from "../../components/recipient/RecipientSummaryStats";
+import RecipientRequestSummaryCard from "../../components/recipient/RecipientRequestSummaryCard";
 
 export default function RecipientDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeRequests, setActiveRequests] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await requestService.getMyRequests();
+      if (res && res.requests) {
+        setRequests(res.requests);
+      }
+    } catch (err) {
+      console.error("Failed to load recipient dashboard requests:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  useEffect(() => {
+    socketService.connect();
+    socketService.on("bloodRequest:accepted", fetchDashboardData);
+    socketService.on("bloodRequest:statusChanged", fetchDashboardData);
+    socketService.on("bloodRequest:fulfilled", fetchDashboardData);
+    socketService.on("bloodRequest:cancelled", fetchDashboardData);
+    return () => {
+      socketService.off("bloodRequest:accepted", fetchDashboardData);
+      socketService.off("bloodRequest:statusChanged", fetchDashboardData);
+      socketService.off("bloodRequest:fulfilled", fetchDashboardData);
+      socketService.off("bloodRequest:cancelled", fetchDashboardData);
+    };
+  }, []);
+
+  const totalCount = requests.length;
+  const activeList = requests.filter((r) => ["Active", "Donor Accepted", "In Progress"].includes(r.status));
+  const activeCount = activeList.length;
+  const responsesCount = requests.filter((r) => r.acceptedDonor || r.donorResponsesCount > 0).length;
+  const fulfilledCount = requests.filter((r) => r.status === "Fulfilled").length;
 
   return (
     <div className="space-y-8 pb-12">
       {/* 1. WELCOME HEADER */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl relative overflow-hidden">
+      <div className="bg-slate-950 text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Welcome, {user?.fullName || 'Recipient'}
+              Welcome, {user?.fullName || "Recipient"}
             </h1>
             <p className="text-slate-300 text-xs sm:text-sm flex items-center gap-2">
               <MapPin className="w-4 h-4 text-blue-400 shrink-0" />
-              <span>Registered Search Location: <strong className="text-white">{user?.city || 'New York'}</strong></span>
+              <span>Registered Search Location: <strong className="text-white">{user?.city ? (user?.state ? user.city + ", " + user.state : user.city) : (user?.state || "Not specified")}</strong></span>
             </p>
           </div>
 
@@ -45,7 +81,7 @@ export default function RecipientDashboardPage() {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => navigate('/recipient/donors')}
+              onClick={() => navigate("/recipient/donors")}
               className="font-bold shadow-md shadow-red-600/20"
             >
               <Search className="w-4 h-4 mr-1" /> Search Donors
@@ -53,8 +89,8 @@ export default function RecipientDashboardPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('/recipient/requests/create')}
-              className="bg-slate-800/80 border-slate-700 text-white hover:bg-slate-700"
+              onClick={() => navigate("/recipient/requests/create")}
+              className="bg-slate-900 border-slate-700 text-white hover:bg-slate-800"
             >
               <PlusCircle className="w-4 h-4 mr-1 text-blue-400" /> Create Blood Request
             </Button>
@@ -79,7 +115,7 @@ export default function RecipientDashboardPage() {
         <Button
           variant="secondary"
           size="lg"
-          onClick={() => navigate('/recipient/requests/create?emergency=true')}
+          onClick={() => navigate("/recipient/requests/create?emergency=true")}
           className="shrink-0 font-extrabold bg-slate-950 hover:bg-slate-900 text-white border-0 shadow-xl"
         >
           Create Emergency Request 🚨
@@ -87,16 +123,16 @@ export default function RecipientDashboardPage() {
       </div>
 
       {/* 3. RECIPIENT SUMMARY STATS */}
-      <RecipientSummaryStats stats={{ totalRequests: 0, activeRequests: 0, donorResponses: 0, fulfilledRequests: 0 }} />
+      <RecipientSummaryStats stats={{ totalRequests: totalCount, activeRequests: activeCount, donorResponses: responsesCount, fulfilledRequests: fulfilledCount }} />
 
       {/* 4. ACTIVE BLOOD REQUESTS SECTION */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div className="flex items-center justify-between border-b border-theme pb-3">
           <div className="space-y-0.5">
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-600" /> Your Active Requests
+            <h2 className="text-xl font-extrabold text-theme-primary tracking-tight flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-500" /> Your Active Requests
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-theme-muted">
               Track donor acceptances, unlocked contacts, and request statuses
             </p>
           </div>
@@ -104,34 +140,34 @@ export default function RecipientDashboardPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/recipient/requests')}
+            onClick={() => navigate("/recipient/requests")}
           >
             View All Requests →
           </Button>
         </div>
 
-        {activeRequests.length === 0 ? (
-          <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center space-y-3">
-            <Inbox className="w-10 h-10 text-slate-300 mx-auto" />
-            <h3 className="font-extrabold text-slate-800 text-base">No active blood requests</h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
+        {activeList.length === 0 ? (
+          <div className="bg-theme-card p-8 rounded-3xl border border-theme text-center space-y-3">
+            <Inbox className="w-10 h-10 text-theme-muted mx-auto" />
+            <h3 className="font-extrabold text-theme-primary text-base">No active blood requests</h3>
+            <p className="text-xs text-theme-muted max-w-md mx-auto">
               You do not have any active blood requests. Search available donors or create a new request when needed.
             </p>
             <Button
               variant="primary"
               size="sm"
-              onClick={() => navigate('/recipient/requests/create')}
+              onClick={() => navigate("/recipient/requests/create")}
             >
               Create Request Now
             </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {activeRequests.map((req) => (
+            {activeList.map((req) => (
               <RecipientRequestSummaryCard
                 key={req.id}
                 request={req}
-                onViewDetails={() => navigate('/recipient/requests')}
+                onViewDetails={() => navigate("/recipient/requests")}
               />
             ))}
           </div>
@@ -139,25 +175,25 @@ export default function RecipientDashboardPage() {
       </div>
 
       {/* 5. RECENT ACTIVITY TIMELINE SNIPPET */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-        <h3 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-          <Clock className="w-4 h-4 text-slate-500" /> Recent Request Activity
+      <div className="bg-theme-card p-6 sm:p-8 rounded-3xl border border-theme shadow-sm space-y-4">
+        <h3 className="text-base font-extrabold text-theme-primary tracking-tight flex items-center gap-2">
+          <Clock className="w-4 h-4 text-theme-muted" /> Recent Request Activity
         </h3>
 
-        {activeRequests.length === 0 ? (
-          <p className="text-xs text-slate-500 italic">No recent request activity recorded yet.</p>
+        {activeList.length === 0 ? (
+          <p className="text-xs text-theme-muted italic">No recent request activity recorded yet.</p>
         ) : (
           <div className="space-y-3 text-xs">
-            {activeRequests.map((req) => (
-              <div key={req.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-3">
-                <div className="p-2 bg-blue-100 text-blue-700 rounded-xl shrink-0">
+            {activeList.map((req) => (
+              <div key={req.id} className="p-3 bg-theme-card-elevated rounded-2xl border border-theme flex items-start gap-3">
+                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-xl shrink-0 border border-blue-500/20">
                   <PlusCircle className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="font-bold text-slate-900">
+                  <p className="font-bold text-theme-primary">
                     Request #{req.id?.slice(-6) || "--"} at {req.hospitalName || "Hospital"}
                   </p>
-                  <p className="text-slate-500 text-[11px]">Status: {req.status} • {req.createdAt || "Recently"}</p>
+                  <p className="text-theme-muted text-[11px]">Status: {req.status} • {req.createdAt || "Recently"}</p>
                 </div>
               </div>
             ))}

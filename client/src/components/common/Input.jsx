@@ -1,9 +1,9 @@
-import React from 'react';
+import React from "react";
 
 export default function Input({
   label,
   id,
-  type = 'text',
+  type = "text",
   placeholder,
   value,
   onChange,
@@ -11,19 +11,19 @@ export default function Input({
   required = false,
   disabled = false,
   icon: Icon,
-  className = '',
+  className = "",
   ...props
 }) {
   return (
     <div className={`space-y-1.5 ${className}`}>
       {label && (
-        <label htmlFor={id} className="block text-xs font-semibold text-slate-700">
+        <label htmlFor={id} className="block text-xs font-semibold text-theme-secondary">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
       <div className="relative rounded-xl shadow-xs">
         {Icon && (
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-theme-muted">
             <Icon className="w-4 h-4" />
           </div>
         )}
@@ -35,13 +35,13 @@ export default function Input({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
-          className={`w-full text-sm rounded-xl border bg-white py-2.5 transition-all outline-none ${
-            Icon ? 'pl-10 pr-3.5' : 'px-3.5'
+          className={`w-full text-sm rounded-xl border bg-theme-input text-theme-input placeholder-theme-muted py-2.5 transition-all outline-none ${
+            Icon ? "pl-10 pr-3.5" : "px-3.5"
           } ${
             error
-              ? 'border-red-500 focus:ring-2 focus:ring-red-200'
-              : 'border-slate-300 focus:border-red-500 focus:ring-2 focus:ring-red-100'
-          } disabled:bg-slate-100 disabled:text-slate-500`}
+              ? "border-red-500 focus:ring-2 focus:ring-red-500/20"
+              : "border-theme-input focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+          } disabled:bg-theme-subtle disabled:text-theme-muted`}
           {...props}
         />
       </div>

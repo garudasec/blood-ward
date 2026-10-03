@@ -1,39 +1,39 @@
-import React from 'react';
-import { Droplet, Activity, CheckCircle2, HeartHandshake, MapPin } from 'lucide-react';
+import React from "react";
+import { Droplet, Activity, CheckCircle2, HeartHandshake } from "lucide-react";
 
 export default function DonorSummaryStats({ stats }) {
   const statItems = [
     {
-      title: 'Nearby Active Requests',
+      title: "Nearby Active Requests",
       value: stats?.nearbyActiveCount || 0,
-      subtext: 'Within 10 km radius',
+      subtext: "Within 10 km radius",
       icon: Activity,
-      iconBg: 'bg-red-50 text-red-600',
-      badge: 'Real-time',
+      iconBg: "bg-red-500/10 text-red-600 dark:text-red-400",
+      badge: "Real-time",
     },
     {
-      title: 'Accepted Requests',
+      title: "Accepted Requests",
       value: stats?.acceptedCount || 0,
-      subtext: 'In coordination stage',
+      subtext: "In coordination stage",
       icon: HeartHandshake,
-      iconBg: 'bg-amber-50 text-amber-600',
-      badge: 'Active',
+      iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      badge: "Active",
     },
     {
-      title: 'Donations Completed',
+      title: "Donations Completed",
       value: stats?.completedDonations || 0,
-      subtext: 'Lives impacted',
+      subtext: "Lives impacted",
       icon: CheckCircle2,
-      iconBg: 'bg-emerald-50 text-emerald-600',
-      badge: 'Total',
+      iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      badge: "Total",
     },
     {
-      title: 'Donor Readiness',
-      value: stats?.responseRate || '100%',
-      subtext: 'Quick response rate',
+      title: "Donor Readiness",
+      value: stats?.responseRate || "100%",
+      subtext: "Quick response rate",
       icon: Droplet,
-      iconBg: 'bg-blue-50 text-blue-600',
-      badge: 'Verified',
+      iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+      badge: "Verified",
     },
   ];
 
@@ -44,21 +44,21 @@ export default function DonorSummaryStats({ stats }) {
         return (
           <div
             key={idx}
-            className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between space-y-3"
+            className="bg-theme-card p-5 rounded-2xl border border-theme shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-3"
           >
             <div className="flex items-center justify-between">
               <div className={`p-2.5 rounded-xl ${item.iconBg}`}>
                 <Icon className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-theme-muted bg-theme-subtle px-2 py-0.5 rounded-md border border-theme">
                 {item.badge}
               </span>
             </div>
 
             <div>
-              <div className="text-2xl font-black text-slate-900 tracking-tight">{item.value}</div>
-              <div className="text-xs font-bold text-slate-800">{item.title}</div>
-              <div className="text-[11px] text-slate-500">{item.subtext}</div>
+              <div className="text-2xl font-black text-theme-primary tracking-tight">{item.value}</div>
+              <div className="text-xs font-bold text-theme-primary">{item.title}</div>
+              <div className="text-[11px] text-theme-muted">{item.subtext}</div>
             </div>
           </div>
         );

@@ -247,7 +247,7 @@ const runSuite = async () => {
 
   // 13. Eligible donor sees active compatible requests
   const t13 = await request('/api/requests/available', { headers: { Cookie: don1Cookie } });
-  record('TEST 13', 'Eligible donor GET available requests', 200, t13.status, t13.data.success && t13.data.requests.length >= 1);
+  console.log('T13 DEBUG data:', JSON.stringify(t13.data)); record('TEST 13', 'Eligible donor GET available requests', 200, t13.status, t13.data.success && t13.data.requests.length >= 1);
 
   // 14. Unavailable donor cannot access available requests
   donor1.availability = 'not_available';

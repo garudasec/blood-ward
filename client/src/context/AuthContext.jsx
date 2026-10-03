@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { USER_ROLES } from '../constants/theme';
 import { authService } from '../services/authService';
+import { socketService } from '../services/socketService';
 
 const AuthContext = createContext(null);
 
@@ -19,7 +20,8 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (err) {
         // Session invalid or not logged in yet
-        setUser(null);
+        socketService.disconnect();
+      setUser(null);
       } finally {
         setLoading(false);
       }
@@ -38,6 +40,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.warn('Backend logout failed or offline:', err);
     } finally {
+      socketService.disconnect();
       setUser(null);
     }
   };

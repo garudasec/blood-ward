@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Mail,
   Lock,
@@ -10,12 +10,12 @@ import {
   HeartHandshake,
   Search,
   Activity,
-} from 'lucide-react';
-import Input from '../../components/common/Input';
-import Button from '../../components/common/Button';
-import { useAuth } from '../../context/AuthContext';
-import { authService } from '../../services/authService';
-import { USER_ROLES } from '../../constants/theme';
+} from "lucide-react";
+import Input from "../../components/common/Input";
+import Button from "../../components/common/Button";
+import { useAuth } from "../../context/AuthContext";
+import { authService } from "../../services/authService";
+import { USER_ROLES } from "../../constants/theme";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -23,84 +23,84 @@ export default function LoginPage() {
   const [selectedRole, setSelectedRole] = useState(USER_ROLES.DONOR);
 
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    email: "",
+    password: "",
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [serverError, setServerError] = useState('');
+  const [serverError, setServerError] = useState("");
 
   const handleChange = (e) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
     if (errors[id]) {
-      setErrors((prev) => ({ ...prev, [id]: '' }));
+      setErrors((prev) => ({ ...prev, [id]: "" }));
     }
-    if (serverError) setServerError('');
+    if (serverError) setServerError("");
   };
 
-  const validateForm = () => {
+  const validate = () => {
     const newErrors = {};
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email address is required';
+    if (!formData.email) {
+      newErrors.email = "Email address is required.";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+      newErrors.email = "Please enter a valid email address.";
     }
-
     if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = "Password is required.";
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validate()) return;
 
     setIsLoading(true);
-    setServerError('');
+    setServerError("");
+
     try {
-      const res = await authService.login({
-        email: formData.email,
-        password: formData.password,
-      });
-      if (res.success && res.user) {
-        login(res.user);
-        if (res.user.role === 'donor') navigate('/donor');
-        else if (res.user.role === 'recipient') navigate('/recipient');
-        else if (res.user.role === 'admin') navigate('/admin');
-        else navigate('/');
+      const user = await authService.login(formData.email, formData.password);
+      login(user);
+
+      if (user.role === USER_ROLES.DONOR) {
+        navigate("/donor");
+      } else if (user.role === USER_ROLES.RECIPIENT) {
+        navigate("/recipient");
+      } else if (user.role === USER_ROLES.ADMIN) {
+        navigate("/admin");
+      } else {
+        navigate("/");
       }
     } catch (err) {
-      setServerError(err.message || 'Invalid email or password.');
+      console.error("Login Error:", err);
+      setServerError(
+        err.message || "Failed to sign in. Please verify your email and password."
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
-      <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-stretch">
+    <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
 
-        {/* LEFT PANEL */}
-        <div className="lg:col-span-5 bg-slate-900 text-white p-8 sm:p-10 rounded-3xl border border-slate-800 shadow-2xl flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-red-900/10 rounded-full blur-3xl pointer-events-none" />
+        {/* LEFT BRAND PANEL */}
+        <div className="lg:col-span-5 bg-slate-950 text-white p-8 sm:p-10 rounded-3xl border border-slate-800 shadow-2xl flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 rounded-full blur-[80px] pointer-events-none" />
 
-          <div className="relative z-10 space-y-8">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/30">
-                  <Droplet className="w-7 h-7 fill-current" />
+          <div className="relative z-10 space-y-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/30">
+                  <Droplet className="w-6 h-6 fill-current" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-extrabold tracking-tight text-white">
+                  <span className="text-xl font-extrabold tracking-tight">
                     Blood<span className="text-red-500">Ward</span>
-                  </h1>
+                  </span>
                   <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase block -mt-1">
                     Emergency Network
                   </span>
@@ -152,28 +152,28 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="lg:col-span-7 bg-white p-8 sm:p-10 rounded-3xl border border-slate-200/80 shadow-xl flex flex-col justify-between">
+        {/* RIGHT FORM PANEL */}
+        <div className="lg:col-span-7 bg-theme-card p-8 sm:p-10 rounded-3xl border border-theme shadow-xl flex flex-col justify-between transition-colors">
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+              <h2 className="text-2xl font-bold text-theme-primary tracking-tight">
                 Welcome Back
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                {selectedRole === USER_ROLES.DONOR && 'Sign in as Donor to manage availability and view blood requests.'}
-                {selectedRole === USER_ROLES.RECIPIENT && 'Sign in as Recipient to search donors and issue emergency requests.'}
-                {selectedRole === USER_ROLES.ADMIN && 'Sign in as Admin to manage users and inspect system audit logs.'}
+              <p className="text-xs text-theme-muted mt-1">
+                {selectedRole === USER_ROLES.DONOR && "Sign in as Donor to manage availability and view blood requests."}
+                {selectedRole === USER_ROLES.RECIPIENT && "Sign in as Recipient to search donors and issue emergency requests."}
+                {selectedRole === USER_ROLES.ADMIN && "Sign in as Admin to manage users and inspect system audit logs."}
               </p>
             </div>
 
-            <div className="bg-slate-100 p-1.5 rounded-2xl flex items-center gap-1.5 border border-slate-200/60">
+            <div className="bg-theme-subtle p-1.5 rounded-2xl flex items-center gap-1.5 border border-theme">
               <button
                 type="button"
                 onClick={() => setSelectedRole(USER_ROLES.DONOR)}
-                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   selectedRole === USER_ROLES.DONOR
-                    ? 'bg-red-600 text-white shadow-md'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                    ? "bg-red-600 text-white shadow-md"
+                    : "text-theme-secondary hover:text-theme-primary hover:bg-theme-hover"
                 }`}
               >
                 <HeartHandshake className="w-3.5 h-3.5" />
@@ -183,10 +183,10 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setSelectedRole(USER_ROLES.RECIPIENT)}
-                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   selectedRole === USER_ROLES.RECIPIENT
-                    ? 'bg-red-600 text-white shadow-md'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                    ? "bg-red-600 text-white shadow-md"
+                    : "text-theme-secondary hover:text-theme-primary hover:bg-theme-hover"
                 }`}
               >
                 <Search className="w-3.5 h-3.5" />
@@ -196,10 +196,10 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setSelectedRole(USER_ROLES.ADMIN)}
-                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   selectedRole === USER_ROLES.ADMIN
-                    ? 'bg-slate-900 text-white shadow-md'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                    ? "bg-slate-900 text-white shadow-md"
+                    : "text-theme-secondary hover:text-theme-primary hover:bg-theme-hover"
                 }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
@@ -208,7 +208,7 @@ export default function LoginPage() {
             </div>
 
             {serverError && (
-              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2.5">
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold">Authentication Error</p>
@@ -224,10 +224,10 @@ export default function LoginPage() {
                 type="email"
                 placeholder={
                   selectedRole === USER_ROLES.DONOR
-                    ? 'donor@example.com'
+                    ? "donor@example.com"
                     : selectedRole === USER_ROLES.RECIPIENT
-                    ? 'recipient@example.com'
-                    : 'admin@bloodward.org'
+                    ? "recipient@example.com"
+                    : "admin@bloodward.org"
                 }
                 value={formData.email}
                 onChange={handleChange}
@@ -250,29 +250,29 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                variant={selectedRole === USER_ROLES.ADMIN ? 'secondary' : 'primary'}
+                variant={selectedRole === USER_ROLES.ADMIN ? "secondary" : "primary"}
                 className="w-full py-3 mt-2 shadow-md font-bold"
                 isLoading={isLoading}
               >
                 <LogIn className="w-4 h-4 mr-1.5" />
-                Sign In as {selectedRole === USER_ROLES.DONOR ? 'Donor' : selectedRole === USER_ROLES.RECIPIENT ? 'Recipient' : 'Admin'}
+                Sign In as {selectedRole === USER_ROLES.DONOR ? "Donor" : selectedRole === USER_ROLES.RECIPIENT ? "Recipient" : "Admin"}
               </Button>
             </form>
           </div>
 
-          <div className="pt-6 mt-6 border-t border-slate-100 text-center space-y-2 text-xs">
-            <p className="text-slate-500">Need a new BloodWard account?</p>
+          <div className="pt-6 mt-6 border-t border-theme text-center space-y-2 text-xs">
+            <p className="text-theme-muted">Need a new BloodWard account?</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
                 to="/register/donor"
-                className="text-red-600 font-bold hover:underline inline-flex items-center gap-1"
+                className="text-red-600 dark:text-red-400 font-bold hover:underline inline-flex items-center gap-1"
               >
                 Register as Donor
               </Link>
-              <span className="hidden sm:inline text-slate-300">•</span>
+              <span className="hidden sm:inline text-theme-muted">•</span>
               <Link
                 to="/register/recipient"
-                className="text-slate-900 font-bold hover:underline inline-flex items-center gap-1"
+                className="text-theme-primary font-bold hover:underline inline-flex items-center gap-1"
               >
                 Register as Recipient
               </Link>

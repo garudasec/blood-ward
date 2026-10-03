@@ -1,33 +1,31 @@
-import React from 'react';
+import React, { useState } from "react";
 import {
   X,
   Building2,
-  MapPin,
   Calendar,
-  AlertTriangle,
   CheckCircle2,
   Phone,
-  ShieldCheck,
   Users,
   Check,
   Ban,
-  Clock,
-} from 'lucide-react';
-import BloodGroupBadge from '../common/BloodGroupBadge';
-import StatusBadge from '../common/StatusBadge';
-import Button from '../common/Button';
-import { REQUEST_STATUS } from '../../constants/theme';
+} from "lucide-react";
+import BloodGroupBadge from "../common/BloodGroupBadge";
+import StatusBadge from "../common/StatusBadge";
+import Button from "../common/Button";
+import { REQUEST_STATUS } from "../../constants/theme";
+import { requestService } from "../../services/requestService";
 
 export default function RecipientRequestTrackingModal({ request, isOpen, onClose, onUpdateStatus }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   if (!isOpen || !request) return null;
 
   // Lifecycle steps array
   const steps = [
-    { label: 'Created', key: REQUEST_STATUS.CREATED },
-    { label: 'Active Broadcast', key: REQUEST_STATUS.ACTIVE },
-    { label: 'Donor Accepted', key: REQUEST_STATUS.DONOR_ACCEPTED },
-    { label: 'In Progress', key: REQUEST_STATUS.IN_PROGRESS },
-    { label: 'Fulfilled', key: REQUEST_STATUS.FULFILLED },
+    { label: "Created", key: REQUEST_STATUS.CREATED },
+    { label: "Active Broadcast", key: REQUEST_STATUS.ACTIVE },
+    { label: "Donor Accepted", key: REQUEST_STATUS.DONOR_ACCEPTED },
+    { label: "In Progress", key: REQUEST_STATUS.IN_PROGRESS },
+    { label: "Fulfilled", key: REQUEST_STATUS.FULFILLED },
   ];
 
   const getStepIndex = (status) => {
@@ -52,25 +50,25 @@ export default function RecipientRequestTrackingModal({ request, isOpen, onClose
   const isCancelled = request.status === REQUEST_STATUS.CANCELLED || request.status === REQUEST_STATUS.EXPIRED;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white max-w-2xl w-full rounded-3xl border border-slate-200 shadow-2xl overflow-hidden space-y-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-theme-modal max-w-2xl w-full rounded-3xl border border-theme shadow-2xl overflow-hidden space-y-0">
         {/* Header */}
-        <div className="p-6 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+        <div className="p-6 bg-theme-modal-header text-theme-primary flex items-center justify-between border-b border-theme">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+              <span className="text-xs font-mono font-bold text-blue-500 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
                 REF #{request.id}
               </span>
               <StatusBadge status={request.status} urgency={request.urgency} />
             </div>
-            <h3 className="font-extrabold text-lg text-white leading-snug">
+            <h3 className="font-extrabold text-lg text-theme-primary leading-snug">
               {request.hospitalName}
             </h3>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+            className="p-2 rounded-xl bg-theme-subtle hover:bg-theme-hover text-theme-secondary hover:text-theme-primary transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -81,12 +79,12 @@ export default function RecipientRequestTrackingModal({ request, isOpen, onClose
           {/* VISUAL REQUEST LIFECYCLE PROGRESS BAR */}
           {!isCancelled ? (
             <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+              <span className="text-xs font-bold text-theme-secondary uppercase tracking-wider block">
                 Request Lifecycle Progress:
               </span>
               <div className="flex items-center justify-between relative py-2">
                 {/* Connecting Line */}
-                <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-200 -translate-y-1/2 z-0" />
+                <div className="absolute top-1/2 left-0 right-0 h-1 bg-theme-subtle -translate-y-1/2 z-0" />
                 <div
                   className="absolute top-1/2 left-0 h-1 bg-emerald-500 -translate-y-1/2 z-0 transition-all duration-300"
                   style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
@@ -100,15 +98,15 @@ export default function RecipientRequestTrackingModal({ request, isOpen, onClose
                       <div
                         className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-xs transition-colors ${
                           isDone
-                            ? 'bg-emerald-600 text-white shadow-md'
-                            : 'bg-white text-slate-400 border-2 border-slate-300'
-                        } ${isCurrent ? 'ring-4 ring-emerald-100' : ''}`}
+                            ? "bg-emerald-600 text-white shadow-md"
+                            : "bg-theme-card text-theme-muted border-2 border-theme"
+                        } ${isCurrent ? "ring-4 ring-emerald-500/20" : ""}`}
                       >
                         {isDone ? <Check className="w-4 h-4" /> : idx + 1}
                       </div>
                       <span
                         className={`text-[10px] font-bold text-center ${
-                          isCurrent ? 'text-emerald-700 font-extrabold' : 'text-slate-500'
+                          isCurrent ? "text-emerald-600 dark:text-emerald-400 font-extrabold" : "text-theme-muted"
                         }`}
                       >
                         {step.label}
@@ -119,7 +117,7 @@ export default function RecipientRequestTrackingModal({ request, isOpen, onClose
               </div>
             </div>
           ) : (
-            <div className="p-3 bg-slate-100 border border-slate-200 text-slate-700 rounded-2xl text-xs flex items-center gap-2 font-bold">
+            <div className="p-3 bg-theme-subtle border border-theme text-theme-secondary rounded-2xl text-xs flex items-center gap-2 font-bold">
               <Ban className="w-4 h-4 text-rose-500 shrink-0" />
               <span>Request Status: {request.status}</span>
             </div>
@@ -127,74 +125,69 @@ export default function RecipientRequestTrackingModal({ request, isOpen, onClose
 
           {/* Key Parameters */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-center">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">Blood Group</span>
+            <div className="bg-theme-card-elevated p-3 rounded-2xl border border-theme text-center">
+              <span className="text-[10px] uppercase font-bold text-theme-muted block">Blood Group</span>
               <div className="mt-1">
                 <BloodGroupBadge group={request.bloodGroup} size="sm" />
               </div>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-center">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">Units Needed</span>
-              <span className="font-extrabold text-slate-900 text-sm block mt-1">
+            <div className="bg-theme-card-elevated p-3 rounded-2xl border border-theme text-center">
+              <span className="text-[10px] uppercase font-bold text-theme-muted block">Units Needed</span>
+              <span className="font-extrabold text-theme-primary text-sm block mt-1">
                 {request.unitsNeeded} Unit(s)
               </span>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-center">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">Urgency</span>
-              <span className="font-extrabold text-slate-900 text-sm block mt-1">
+            <div className="bg-theme-card-elevated p-3 rounded-2xl border border-theme text-center">
+              <span className="text-[10px] uppercase font-bold text-theme-muted block">Urgency</span>
+              <span className="font-extrabold text-theme-primary text-sm block mt-1">
                 {request.urgency}
               </span>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-center">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">Donors Accepted</span>
-              <span className="font-extrabold text-emerald-700 text-sm block mt-1">
-                {request.acceptedDonors?.length || 0} Donor(s)
+            <div className="bg-theme-card-elevated p-3 rounded-2xl border border-theme text-center">
+              <span className="text-[10px] uppercase font-bold text-theme-muted block">Donors Accepted</span>
+              <span className="font-extrabold text-emerald-600 dark:text-emerald-400 text-sm block mt-1">
+                {request.acceptedDonorDetails ? 1 : 0} Donor(s)
               </span>
             </div>
           </div>
 
-          {/* UNLOCKED DONOR CONTACTS PANEL */}
-          {request.acceptedDonors && request.acceptedDonors.length > 0 ? (
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-3">
-              <div className="flex items-center justify-between text-xs font-bold text-emerald-800">
+          {/* UNLOCKED DONOR CONTACT PANEL */}
+          {request.acceptedDonorDetails ? (
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  Unlocked Donor Phone Contacts ({request.acceptedDonors.length})
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  Unlocked Donor Phone Contact
                 </span>
-                <span className="text-[10px] bg-emerald-200 text-emerald-950 px-2 py-0.5 rounded font-extrabold">
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded font-extrabold">
                   Authorized
                 </span>
               </div>
 
-              <div className="space-y-2">
-                {request.acceptedDonors.map((donor, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-white p-3 rounded-xl border border-emerald-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs"
-                  >
-                    <div>
-                      <span className="font-bold text-slate-900">{donor.name}</span>
-                      <span className="text-slate-500 ml-1">({donor.bloodGroup}, ~{donor.distanceKm} km away)</span>
-                    </div>
-                    <a
-                      href={`tel:${donor.phone}`}
-                      className="font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
-                    >
-                      <Phone className="w-3.5 h-3.5" /> Call {donor.phone}
-                    </a>
-                  </div>
-                ))}
+              <div className="bg-theme-card p-3 rounded-xl border border-emerald-500/30 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs">
+                <div>
+                  <span className="font-bold text-theme-primary">{request.acceptedDonorDetails.fullName}</span>
+                  <span className="text-theme-muted ml-1">
+                    ({request.acceptedDonorDetails.bloodGroup}{request.acceptedDonorDetails.city ? `, ${request.acceptedDonorDetails.city}` : ""})
+                  </span>
+                </div>
+                <a
+                  href={`tel:${request.acceptedDonorDetails.phone}`}
+                  className="font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                >
+                  <Phone className="w-3.5 h-3.5" /> Call {request.acceptedDonorDetails.phone}
+                </a>
               </div>
             </div>
           ) : (
-            <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 text-blue-900 text-xs flex items-center gap-3">
-              <Users className="w-5 h-5 text-blue-600 shrink-0" />
+            <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 text-xs flex items-center gap-3">
+              <Users className="w-5 h-5 text-blue-500 shrink-0" />
               <div>
-                <span className="font-bold block">Awaiting Donor Acceptance</span>
-                <span className="text-[11px] text-blue-800">
+                <span className="font-bold block text-blue-600 dark:text-blue-400">Awaiting Donor Acceptance</span>
+                <span className="text-[11px] text-theme-muted">
                   Donor contact details unlock automatically when a matching donor accepts this request.
                 </span>
               </div>
@@ -203,33 +196,42 @@ export default function RecipientRequestTrackingModal({ request, isOpen, onClose
 
           {/* Hospital & Location Details */}
           <div className="space-y-2 text-xs">
-            <div className="flex items-start gap-2.5 text-slate-700">
+            <div className="flex items-start gap-2.5 text-theme-secondary">
               <Building2 className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold block text-slate-900">Hospital Address:</span>
-                <span className="text-slate-600">{request.hospitalName}, {request.city}</span>
+                <span className="font-bold block text-theme-primary">Hospital Address:</span>
+                <span className="text-theme-muted">{request.hospitalName}, {request.city}</span>
               </div>
             </div>
 
-            <div className="flex items-start gap-2.5 text-slate-700">
+            <div className="flex items-start gap-2.5 text-theme-secondary">
               <Calendar className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold block text-slate-900">Target Required Date:</span>
-                <span className="text-slate-600">{request.requiredDate}</span>
+                <span className="font-bold block text-theme-primary">Target Required Date:</span>
+                <span className="text-theme-muted">{request.requiredDate}</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+        <div className="p-4 bg-theme-modal-footer border-t border-theme flex items-center justify-between gap-3">
           {!isCancelled && request.status !== REQUEST_STATUS.FULFILLED && (
             <button
-              onClick={() => {
-                onUpdateStatus(request.id, REQUEST_STATUS.CANCELLED);
-                onClose();
+              disabled={isSubmitting}
+              onClick={async () => {
+                try {
+                  setIsSubmitting(true);
+                  await requestService.cancel(request.id);
+                  onUpdateStatus(request.id, REQUEST_STATUS.CANCELLED);
+                  onClose();
+                } catch (err) {
+                  alert(err.message || "Failed to cancel request");
+                } finally {
+                  setIsSubmitting(false);
+                }
               }}
-              className="text-xs font-semibold text-rose-600 hover:text-rose-800 px-3 py-2 rounded-xl hover:bg-rose-50"
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 px-3 py-2 rounded-xl hover:bg-rose-500/10 disabled:opacity-50 cursor-pointer"
             >
               Cancel Request
             </button>
@@ -239,13 +241,22 @@ export default function RecipientRequestTrackingModal({ request, isOpen, onClose
             <Button variant="outline" size="sm" onClick={onClose}>
               Close
             </Button>
-            {!isCancelled && request.status !== REQUEST_STATUS.FULFILLED && (
+            {request.status === REQUEST_STATUS.IN_PROGRESS && (
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => {
-                  onUpdateStatus(request.id, REQUEST_STATUS.FULFILLED);
-                  onClose();
+                isLoading={isSubmitting}
+                onClick={async () => {
+                  try {
+                    setIsSubmitting(true);
+                    await requestService.fulfill(request.id);
+                    if (onUpdateStatus) onUpdateStatus(request.id, REQUEST_STATUS.FULFILLED);
+                    onClose();
+                  } catch (err) {
+                    alert(err.message || "Failed to mark request as fulfilled");
+                  } finally {
+                    setIsSubmitting(false);
+                  }
                 }}
                 className="font-bold bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
               >

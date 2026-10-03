@@ -1,19 +1,21 @@
-import express from 'express';
+import express from "express";
 import {
   registerDonor,
   registerRecipient,
   login,
   logout,
   getMe,
-} from '../controllers/authController.js';
-import { protect } from '../middleware/authMiddleware.js';
+  updateMe,
+} from "../controllers/authController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post('/register/donor', registerDonor);
-router.post('/register/recipient', registerRecipient);
-router.post('/login', login);
-router.post('/logout', logout);
-router.get('/me', protect, getMe);
+router.post("/register/donor", registerDonor);
+router.post("/register/recipient", registerRecipient);
+router.post("/login", login);
+router.post("/logout", logout);
+router.get("/me", protect, getMe);
+router.put("/me", protect, updateMe);
 
 export default router;

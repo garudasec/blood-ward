@@ -1,241 +1,221 @@
-import api from '../../services/api';
-import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import api from "../../services/api";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
 import {
   User,
   Mail,
   Phone,
+  Droplet,
   MapPin,
   ShieldCheck,
-  Edit3,
+  Edit,
   Save,
-  X,
   CheckCircle2,
-  Droplet,
-  Check,
   AlertCircle,
-  Activity,
-} from 'lucide-react';
-import Input from '../../components/common/Input';
-import Select from '../../components/common/Select';
-import Button from '../../components/common/Button';
-import BloodGroupBadge from '../../components/common/BloodGroupBadge';
-import { BLOOD_GROUPS, GENDER_OPTIONS } from '../../constants/theme';
-import { INDIA_STATES_AND_CITIES, INDIAN_STATES_LIST } from '../../constants/indiaLocations';
+  X,
+} from "lucide-react";
+import Input from "../../components/common/Input";
+import Select from "../../components/common/Select";
+import Button from "../../components/common/Button";
+import BloodGroupBadge from "../../components/common/BloodGroupBadge";
+import { BLOOD_GROUPS, GENDER_OPTIONS } from "../../constants/theme";
+import { INDIA_STATES_AND_CITIES, INDIAN_STATES_LIST } from "../../constants/indiaLocations";
 
 export default function DonorProfilePage() {
   const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [notice, setNotice] = useState("");
+  const [errorNotice, setErrorNotice] = useState("");
 
   const [formData, setFormData] = useState({
-    fullName: user?.fullName || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
-    bloodGroup: user?.bloodGroup || 'O+',
-    state: user?.state || '',
-    city: user?.city || '',
-    pincode: user?.pincode || '',
-    gender: user?.gender || '',
-    isAvailable: user?.availability === 'available' || user?.isAvailable !== false,
+    fullName: "",
+    email: "",
+    phone: "",
+    bloodGroup: "",
+    gender: "",
+    state: "",
+    city: "",
+    pincode: "",
+    isAvailable: true,
   });
 
   const [errors, setErrors] = useState({});
 
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        fullName: user.fullName || user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        bloodGroup: user.bloodGroup || "",
+        gender: user.gender || "",
+        state: user.state || "",
+        city: user.city || user.location || "",
+        pincode: user.pincode || "",
+        isAvailable: user.isAvailable ?? (user.availability === "Available" || user.availability === "available"),
+      });
+    }
+  }, [user]);
+
   const handleChange = (e) => {
     const { id, value, type, checked } = e.target;
 
-    if (id === 'state') {
+    if (id === "state") {
       setFormData((prev) => ({
         ...prev,
         state: value,
-        city: '',
+        city: "",
       }));
     } else {
       setFormData((prev) => ({
         ...prev,
-        [id]: type === 'checkbox' ? checked : value,
+        [id]: type === "checkbox" ? checked : value,
       }));
     }
 
-    if (errors[id]) setErrors((prev) => ({ ...prev, [id]: '' }));
-    if (successMsg) setSuccessMsg('');
-    if (errorMsg) setErrorMsg('');
+    if (errors[id]) {
+      setErrors((prev) => ({ ...prev, [id]: "" }));
+    }
   };
 
-  const validateForm = () => {
+  const validate = () => {
     const newErrors = {};
-    if (!formData.fullName.trim()) newErrors.fullName = 'Full Name is required';
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email address is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Valid email address required';
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^[0-9+\-\s()]{8,15}$/.test(formData.phone)) {
-      newErrors.phone = 'Enter a valid phone number';
-    }
-
-    if (!formData.bloodGroup) newErrors.bloodGroup = 'Blood group selection required';
+    if (!formData.fullName.trim()) newErrors.fullName = "Full Name is required";
+    if (!formData.email.trim()) newErrors.email = "Email is required";
+    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
+    if (!formData.bloodGroup) newErrors.bloodGroup = "Blood Group is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validate()) return;
 
     setIsSaving(true);
+    setNotice("");
+    setErrorNotice("");
+
     try {
-      if (user?.role === 'donor') {
-        const res = await api.put('/donors/me', {
-          fullName: formData.fullName,
-          phone: formData.phone,
-          bloodGroup: formData.bloodGroup,
-          state: formData.state,
-          city: formData.city,
-          pincode: formData.pincode,
-          gender: formData.gender,
-        });
-        if (res.data?.donor) {
-          updateUser(res.data.donor);
-        } else {
-          updateUser(formData);
-        }
-      } else {
-        updateUser(formData);
+      const payload = {
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        bloodGroup: formData.bloodGroup,
+        gender: formData.gender,
+        state: formData.state,
+        city: formData.city,
+        pincode: formData.pincode,
+        availability: formData.isAvailable ? "Available" : "Not Available",
+        isAvailable: formData.isAvailable,
+      };
+
+      const updatedUser = await api.put("/donors/me/profile", payload);
+      if (updatedUser) {
+        updateUser(updatedUser.data?.user || updatedUser.data || payload);
       }
+      setNotice("Donor profile updated successfully!");
       setIsEditing(false);
-      setSuccessMsg('Profile information updated successfully!');
-      setTimeout(() => setSuccessMsg(''), 4000);
+      setTimeout(() => setNotice(""), 4000);
     } catch (err) {
-      console.error('Failed to update profile backend:', err);
-      updateUser(formData);
-      setIsEditing(false);
+      console.error("Failed to save donor profile:", err);
+      setErrorNotice(err.response?.data?.message || err.message || "Failed to update profile.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleCancel = () => {
-    setFormData({
-      fullName: user?.fullName || '',
-      email: user?.email || '',
-      phone: user?.phone || '',
-      bloodGroup: user?.bloodGroup || 'O+',
-      state: user?.state || '',
-      city: user?.city || '',
-      pincode: user?.pincode || '',
-    gender: user?.gender || '',
-      isAvailable: user?.availability === 'available' || user?.isAvailable !== false,
-    });
+    if (user) {
+      setFormData({
+        fullName: user.fullName || user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        bloodGroup: user.bloodGroup || "",
+        gender: user.gender || "",
+        state: user.state || "",
+        city: user.city || user.location || "",
+        pincode: user.pincode || "",
+        isAvailable: user.isAvailable ?? (user.availability === "Available" || user.availability === "available"),
+      });
+    }
     setErrors({});
     setIsEditing(false);
   };
 
-  const calculateCompletion = () => {
-    const fields = [
-      formData.fullName,
-      formData.email,
-      formData.phone,
-      formData.bloodGroup,
-      formData.city,
-    ];
-    const filled = fields.filter((f) => f && String(f).trim().length > 0).length;
-    return Math.round((filled / fields.length) * 100);
-  };
-
-  const completionRate = calculateCompletion();
-
-  const cityOptions = formData.state
-    ? (INDIA_STATES_AND_CITIES[formData.state] || [])
-    : (formData.city ? [formData.city] : []);
+  const cityOptions = formData.state && INDIA_STATES_AND_CITIES[formData.state]
+    ? INDIA_STATES_AND_CITIES[formData.state]
+    : [];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       {/* Header Banner */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-slate-100">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-red-600 text-white font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-red-500/20">
-              {formData.fullName ? formData.fullName.charAt(0).toUpperCase() : 'D'}
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                  {formData.fullName || 'Donor User'}
-                </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
-                  Donor Profile
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-slate-400" /> {formData.email}
-                <span className="text-slate-300">•</span>
-                <MapPin className="w-3.5 h-3.5 text-slate-400" /> {formData.city ? `${formData.city}${formData.state ? ', ' + formData.state : ''}` : 'Location Unspecified'}
-              </p>
-            </div>
+      <div className="bg-theme-card p-6 sm:p-8 rounded-3xl border border-theme shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-red-600 flex items-center justify-center text-white font-black text-2xl shadow-md shadow-red-600/30">
+            {formData.fullName ? formData.fullName.charAt(0).toUpperCase() : "D"}
           </div>
-
-          <div className="flex items-center gap-3">
-            {!isEditing ? (
-              <Button variant="primary" size="sm" onClick={() => setIsEditing(true)}>
-                <Edit3 className="w-4 h-4 mr-1.5" /> Edit Profile
-              </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleCancel}>
-                  <X className="w-4 h-4 mr-1" /> Cancel
-                </Button>
-                <Button variant="primary" size="sm" isLoading={isSaving} onClick={handleSave}>
-                  <Save className="w-4 h-4 mr-1" /> Save Changes
-                </Button>
-              </div>
-            )}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-extrabold text-theme-primary tracking-tight">
+                {formData.fullName || "Donor Profile"}
+              </h1>
+              {formData.bloodGroup && <BloodGroupBadge group={formData.bloodGroup} size="sm" />}
+            </div>
+            <p className="text-xs text-theme-muted flex items-center gap-2">
+              <span>{formData.email}</span>
+              <span>•</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">Donor Profile Verified</span>
+            </p>
           </div>
         </div>
 
-        {successMsg && (
-          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-600" />
-            <span>{successMsg}</span>
-          </div>
+        {!isEditing && (
+          <Button variant="primary" size="sm" onClick={() => setIsEditing(true)} className="shrink-0 font-bold">
+            <Edit className="w-4 h-4 mr-1.5" /> Edit Profile
+          </Button>
         )}
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-700">Profile Completion</span>
-            <span className="font-bold text-red-600">{completionRate}%</span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-red-500 to-rose-600 transition-all duration-300 rounded-full"
-              style={{ width: `${completionRate}%` }}
-            />
-          </div>
-        </div>
       </div>
 
-      {/* Main Details Section */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-        <div className="flex items-center justify-between border-b pb-4">
-          <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
-            Donor Details & Location Settings
+      {/* Success Notification */}
+      {notice && (
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> {notice}
+          </span>
+          <button onClick={() => setNotice("")} className="text-theme-muted hover:text-theme-primary cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Error Notification */}
+      {errorNotice && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500" /> {errorNotice}
+          </span>
+          <button onClick={() => setErrorNotice("")} className="text-theme-muted hover:text-theme-primary cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Main Form / Profile Info Box */}
+      <div className="bg-theme-card p-6 sm:p-8 rounded-3xl border border-theme shadow-sm space-y-6">
+        <div className="flex items-center justify-between border-b border-theme pb-4">
+          <h2 className="text-lg font-extrabold text-theme-primary tracking-tight">
+            Personal & Location Details
           </h2>
-          <span className="text-xs text-slate-400">
-            {isEditing ? 'Mode: Editing' : 'Mode: Read-Only View'}
+          <span className="text-xs text-theme-muted">
+            {isEditing ? "Editing Mode" : "Read-Only Overview"}
           </span>
         </div>
 
         {isEditing ? (
-          /* EDIT FORM */
-          <form onSubmit={handleSave} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 label="Full Name"
@@ -278,6 +258,7 @@ export default function DonorProfilePage() {
                 value={formData.bloodGroup}
                 onChange={handleChange}
                 error={errors.bloodGroup}
+                placeholder="Select Blood Group"
                 icon={Droplet}
                 required
               />
@@ -332,12 +313,12 @@ export default function DonorProfilePage() {
               />
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div className="p-4 rounded-2xl bg-theme-card-elevated border border-theme flex items-center justify-between">
               <div>
-                <label htmlFor="isAvailable" className="text-xs font-bold text-slate-900 cursor-pointer block">
+                <label htmlFor="isAvailable" className="text-xs font-bold text-theme-primary cursor-pointer block">
                   Donation Availability Status
                 </label>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-theme-muted">
                   Toggle whether your profile appears in active emergency donor searches.
                 </p>
               </div>
@@ -350,7 +331,7 @@ export default function DonorProfilePage() {
                   onChange={handleChange}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                <div className="w-11 h-6 bg-slate-400 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-['] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
               </label>
             </div>
 
@@ -367,66 +348,66 @@ export default function DonorProfilePage() {
           /* READ-ONLY DISPLAY VIEW */
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Full Name</span>
-                <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <div className="space-y-1 bg-theme-card-elevated p-4 rounded-2xl border border-theme">
+                <span className="text-[10px] uppercase font-bold text-theme-muted">Full Name</span>
+                <p className="font-bold text-theme-primary text-sm flex items-center gap-2">
                   <User className="w-4 h-4 text-red-500" /> {formData.fullName}
                 </p>
               </div>
 
-              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Email Address</span>
-                <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <div className="space-y-1 bg-theme-card-elevated p-4 rounded-2xl border border-theme">
+                <span className="text-[10px] uppercase font-bold text-theme-muted">Email Address</span>
+                <p className="font-bold text-theme-primary text-sm flex items-center gap-2">
                   <Mail className="w-4 h-4 text-red-500" /> {formData.email}
                 </p>
               </div>
 
-              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Phone Number</span>
-                <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <div className="space-y-1 bg-theme-card-elevated p-4 rounded-2xl border border-theme">
+                <span className="text-[10px] uppercase font-bold text-theme-muted">Phone Number</span>
+                <p className="font-bold text-theme-primary text-sm flex items-center gap-2">
                   <Phone className="w-4 h-4 text-red-500" /> {formData.phone}
                 </p>
               </div>
 
-              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Blood Group</span>
+              <div className="space-y-1 bg-theme-card-elevated p-4 rounded-2xl border border-theme">
+                <span className="text-[10px] uppercase font-bold text-theme-muted">Blood Group</span>
                 <div className="pt-0.5">
                   <BloodGroupBadge group={formData.bloodGroup} size="sm" />
                 </div>
               </div>
 
-              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Gender</span>
-                <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <User className="w-4 h-4 text-red-500" /> {formData.gender || 'Not specified'}
+              <div className="space-y-1 bg-theme-card-elevated p-4 rounded-2xl border border-theme">
+                <span className="text-[10px] uppercase font-bold text-theme-muted">Gender</span>
+                <p className="font-bold text-theme-primary text-sm flex items-center gap-2">
+                  <User className="w-4 h-4 text-red-500" /> {formData.gender || "Not specified"}
                 </p>
               </div>
 
-              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400">State / UT</span>
-                <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-red-500" /> {formData.state || 'Not specified'}
+              <div className="space-y-1 bg-theme-card-elevated p-4 rounded-2xl border border-theme">
+                <span className="text-[10px] uppercase font-bold text-theme-muted">State / UT</span>
+                <p className="font-bold text-theme-primary text-sm flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-red-500" /> {formData.state || "Not specified"}
                 </p>
               </div>
 
-              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400">City / Region</span>
-                <p className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-red-500" /> {formData.city || 'Not specified'}
+              <div className="space-y-1 bg-theme-card-elevated p-4 rounded-2xl border border-theme">
+                <span className="text-[10px] uppercase font-bold text-theme-muted">City / Region</span>
+                <p className="font-bold text-theme-primary text-sm flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-red-500" /> {formData.city || "Not specified"}
                 </p>
               </div>
 
-              <div className="space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 sm:col-span-2">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Pincode</span>
-                <p className="font-bold text-slate-900 text-sm">{formData.pincode || 'N/A'}</p>
+              <div className="space-y-1 bg-theme-card-elevated p-4 rounded-2xl border border-theme sm:col-span-2">
+                <span className="text-[10px] uppercase font-bold text-theme-muted">Pincode</span>
+                <p className="font-bold text-theme-primary text-sm">{formData.pincode || "N/A"}</p>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/80 text-emerald-900 text-xs flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="font-bold">Contact Privacy Protection Engaged</p>
-                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                <p className="text-[11px] leading-relaxed">
                   Your phone number and exact residential location are shielded from public recipient searches. They are only disclosed when you explicitly accept a blood request.
                 </p>
               </div>
