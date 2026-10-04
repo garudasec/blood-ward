@@ -20,7 +20,7 @@ const sendTokenResponse = (user, statusCode, res, message = "Success") => {
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   };
 
@@ -234,7 +234,7 @@ export const logout = async (req, res) => {
     httpOnly: true,
     expires: new Date(Date.now() + 1000),
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   });
 
   if (req.user) {
