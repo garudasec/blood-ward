@@ -10,12 +10,14 @@ import {
   Ban,
   Radar,
   ArrowUpRight,
+  ShieldAlert,
 } from "lucide-react";
 import BloodGroupBadge from "../common/BloodGroupBadge";
 import StatusBadge from "../common/StatusBadge";
 import Button from "../common/Button";
 import { REQUEST_STATUS } from "../../constants/theme";
 import { requestService } from "../../services/requestService";
+import CreateComplaintModal from "../complaint/CreateComplaintModal";
 
 const RADIUS_PRESETS = [5, 10, 20, 30, 50];
 
@@ -24,6 +26,7 @@ export default function RecipientRequestTrackingModal({ request, isOpen, onClose
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
   const [selectedExpandRadius, setSelectedExpandRadius] = useState(null);
+  const [isComplaintModalOpen, setIsComplaintModalOpen] = useState(false);
 
   if (!isOpen || !request) return null;
 
@@ -293,28 +296,38 @@ export default function RecipientRequestTrackingModal({ request, isOpen, onClose
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3">
-          {!isCancelled && request.status !== REQUEST_STATUS.FULFILLED && (
+        <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {!isCancelled && request.status !== REQUEST_STATUS.FULFILLED && (
+              <button
+                disabled={isSubmitting}
+                onClick={async () => {
+                  try {
+                    setIsSubmitting(true);
+                    setActionError("");
+                    await requestService.cancel(request.id);
+                    onUpdateStatus(request.id, REQUEST_STATUS.CANCELLED);
+                    onClose();
+                  } catch (err) {
+                    setActionError(err.message || "Failed to cancel request");
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                className="text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-100 px-3 py-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-800 disabled:opacity-50 cursor-pointer underline"
+              >
+                Cancel Request
+              </button>
+            )}
+
             <button
-              disabled={isSubmitting}
-              onClick={async () => {
-                try {
-                  setIsSubmitting(true);
-                  setActionError("");
-                  await requestService.cancel(request.id);
-                  onUpdateStatus(request.id, REQUEST_STATUS.CANCELLED);
-                  onClose();
-                } catch (err) {
-                  setActionError(err.message || "Failed to cancel request");
-                } finally {
-                  setIsSubmitting(false);
-                }
-              }}
-              className="text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-100 px-3 py-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-800 disabled:opacity-50 cursor-pointer underline"
+              type="button"
+              onClick={() => setIsComplaintModalOpen(true)}
+              className="text-xs font-medium text-rose-700 hover:text-rose-900 dark:text-rose-400 dark:hover:text-rose-300 px-2.5 py-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-1 cursor-pointer transition-colors"
             >
-              Cancel Request
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /> Report Issue / File Complaint
             </button>
-          )}
+          </div>
 
           <div className="flex items-center gap-2 ml-auto">
             <Button variant="outline" size="sm" onClick={onClose}>
@@ -322,6 +335,17 @@ export default function RecipientRequestTrackingModal({ request, isOpen, onClose
             </Button>
           </div>
         </div>
+
+        {/* Misconduct / Grievance Complaint Modal */}
+        <CreateComplaintModal
+          isOpen={isComplaintModalOpen}
+          onClose={() => setIsComplaintModalOpen(false)}
+          bloodRequest={request}
+          patient={request.patient}
+          onComplaintSubmitted={() => {
+            setActionSuccess("Complaint has been submitted and escalated to administrator review.");
+          }}
+        />
       </div>
     </div>
   );

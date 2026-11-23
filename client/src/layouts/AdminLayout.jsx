@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import {
   ShieldCheck,
+  ShieldAlert,
   LayoutDashboard,
   Users,
   FileText,
@@ -61,6 +62,8 @@ export default function AdminLayout() {
     { label: "Donors", path: "/admin/donors", icon: Users },
     { label: "Recipients", path: "/admin/recipients", icon: UserCheck },
     { label: "Requests", path: "/admin/requests", icon: FileText },
+    { label: "Complaints", path: "/admin/complaints", icon: ShieldAlert },
+    { label: "Notifications", path: "/admin/notifications", icon: Bell },
     { label: "Audit Logs", path: "/admin/audit-logs", icon: Activity },
   ];
 

@@ -117,6 +117,25 @@ const bloodRequestSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     }],
+    hospital: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Hospital',
+      default: null,
+    },
+    patient: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Patient',
+      default: null,
+    },
+    patientDetails: {
+      patientId: { type: String, default: '' },
+      name: { type: String, default: '', trim: true },
+      contactPhone: { type: String, default: '', trim: true },
+      age: { type: Number, default: null },
+      gender: { type: String, default: '', trim: true },
+      hospitalRegistrationNumber: { type: String, default: '', trim: true },
+      wardDepartment: { type: String, default: '', trim: true },
+    },
   },
   {
     timestamps: true,

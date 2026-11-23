@@ -1,4 +1,4 @@
-import './testDb.js';
+import { seedVerifiedEmailOtp } from './testDb.js';
 import assert from 'node:assert';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -73,6 +73,7 @@ const run = async () => {
 
     // 1. Register donor with date of birth and questionnaire
     const donorEmail = `donor_p2_${ts}@bloodward.test`;
+    await seedVerifiedEmailOtp(donorEmail);
     const regDonorRes = await fetch(`${baseUrl}/auth/register/donor`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -162,6 +163,7 @@ const run = async () => {
 
     // 7. Individual recipient registration (auto-verified)
     const indEmail = `ind_rec_${ts}@bloodward.test`;
+    await seedVerifiedEmailOtp(indEmail);
     const regIndRes = await fetch(`${baseUrl}/auth/register/recipient`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -181,6 +183,7 @@ const run = async () => {
 
     // 8. Hospital representative registration (defaults to pending verification)
     const hospEmail = `hosp_rep_${ts}@bloodward.test`;
+    await seedVerifiedEmailOtp(hospEmail);
     const regHospRes = await fetch(`${baseUrl}/auth/register/recipient`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

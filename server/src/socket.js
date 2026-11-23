@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import User from "./models/user.model.js";
 import BloodRequest from "./models/bloodRequest.js";
 import { getCityCoordinates } from "./utils/cityCoordinates.js";
+import { createAndNotifyPotentialMatches } from "./services/matchNotificationService.js";
 
 let io = null;
 
@@ -110,7 +111,6 @@ export const emitToRole = (role, event, payload) => {
  * @returns {Promise<number>} - Count of newly notified donors
  */
 export const notifyMatchingDonors = async (bloodRequest, newlyEligibleOnly = false) => {
-  if (!io) return 0;
   try {
     if (!bloodRequest.location || !Array.isArray(bloodRequest.location.coordinates) || bloodRequest.location.coordinates.length < 2) {
       console.log("[Socket.IO] Skipping notify: Blood request has no valid coordinates.");
@@ -147,6 +147,7 @@ export const notifyMatchingDonors = async (bloodRequest, newlyEligibleOnly = fal
     const notifiedSet = new Set(currentNotified);
     const updatedNotified = [...currentNotified];
     let newNotificationsCount = 0;
+    const matchingDonorsList = [];
 
     for (const donor of potentialDonors) {
       const donorIdStr = donor._id.toString();
@@ -185,6 +186,8 @@ export const notifyMatchingDonors = async (bloodRequest, newlyEligibleOnly = fal
       const dist = Math.round(R * c * 10) / 10;
 
       if (dist <= matchRadius) {
+        matchingDonorsList.push(donor);
+
         if (!notifiedSet.has(donorIdStr)) {
           notifiedSet.add(donorIdStr);
           updatedNotified.push(donor._id);
@@ -206,6 +209,13 @@ export const notifyMatchingDonors = async (bloodRequest, newlyEligibleOnly = fal
     await BloodRequest.findByIdAndUpdate(bloodRequest._id, {
       $set: { notifiedDonors: updatedNotified },
     });
+
+    // Create persistent matches and notify donors + recipient
+    if (matchingDonorsList.length > 0) {
+      createAndNotifyPotentialMatches(bloodRequest, matchingDonorsList).catch((err) => {
+        console.error("[Socket.IO] Error creating persistent matches:", err.message);
+      });
+    }
 
     return newNotificationsCount;
   } catch (err) {

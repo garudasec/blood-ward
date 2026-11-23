@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { donorService } from "../../services/donorService";
 import { requestService } from "../../services/requestService";
+import { matchService } from "../../services/matchService";
 import { socketService } from "../../services/socketService";
 import {
   User,
@@ -29,6 +30,7 @@ export default function DonorDashboardPage() {
   const navigate = useNavigate();
 
   const [requests, setRequests] = useState([]);
+  const [matches, setMatches] = useState([]);
   const [selectedRadius, setSelectedRadius] = useState(20);
   const [isLoading, setIsLoading] = useState(true);
   const [acceptedCount, setAcceptedCount] = useState(0);
@@ -41,17 +43,26 @@ export default function DonorDashboardPage() {
       if (selectedRadius) {
         params.radius = selectedRadius === 9999 ? "any" : selectedRadius;
       }
-      const data = await requestService.getAvailableRequests(params);
-      const incoming = data?.requests || data || [];
-      // Deduplicate by unique request ID (_id / id) ensuring no duplicate React keys or card entries
-      const seenIds = new Set();
-      const uniqueRequests = incoming.filter((r) => {
-        const id = r.id || r._id;
-        if (!id || seenIds.has(id)) return false;
-        seenIds.add(id);
-        return true;
-      });
-      setRequests(uniqueRequests);
+      const [data, matchData] = await Promise.allSettled([
+        requestService.getAvailableRequests(params),
+        matchService.getMyMatches(),
+      ]);
+
+      if (data.status === "fulfilled") {
+        const incoming = data.value?.requests || data.value || [];
+        const seenIds = new Set();
+        const uniqueRequests = incoming.filter((r) => {
+          const id = r.id || r._id;
+          if (!id || seenIds.has(id)) return false;
+          seenIds.add(id);
+          return true;
+        });
+        setRequests(uniqueRequests);
+      }
+
+      if (matchData.status === "fulfilled" && matchData.value?.matches) {
+        setMatches(matchData.value.matches);
+      }
     } catch (err) {
       console.error("Failed to fetch available requests", err);
     } finally {
@@ -372,6 +383,67 @@ export default function DonorDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* 5. MATCH ASSIGNMENTS & LIFECYCLE HISTORY */}
+      {matches.length > 0 && (
+        <div className="space-y-4 pt-4 border-t border-[#E2E8F0] dark:border-[#343B47]">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <h2 className="text-lg font-bold text-[#1E293B] dark:text-[#F1F5F9] tracking-tight flex items-center gap-2">
+                <History className="w-4 h-4 text-[#A61B2B]" />
+                Your Match History & Lifecycle
+              </h2>
+              <p className="text-xs text-[#475569] dark:text-[#94A3B8]">
+                Persistent donor match assignments, response statuses, and completion records
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/donor/history")}
+              className="text-xs"
+            >
+              Full Donation History →
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {matches.map((m) => (
+              <div
+                key={m._id || m.id}
+                className="bg-white dark:bg-[#181B21] p-4 rounded-xl border border-[#E2E8F0] dark:border-[#343B47] shadow-xs space-y-2.5"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="font-bold text-xs uppercase px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/40">
+                      {m.bloodGroup}
+                    </span>
+                    <h4 className="font-bold text-[#1E293B] dark:text-[#F1F5F9] text-sm mt-1">
+                      {m.hospitalName}
+                    </h4>
+                    <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
+                      {m.city}{m.state ? `, ${m.state}` : ""} • {m.unitsNeeded} unit(s)
+                    </p>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      m.status === "Accepted"
+                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                        : m.status === "Completed"
+                        ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                        : m.status === "Declined"
+                        ? "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700"
+                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                    }`}
+                  >
+                    {m.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

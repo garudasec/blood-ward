@@ -19,6 +19,7 @@ import Button from "../../components/common/Button";
 import { GENDER_OPTIONS } from "../../constants/theme";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
+import EmailVerificationSection from "../../components/auth/EmailVerificationSection";
 import { INDIA_STATES_AND_CITIES, INDIAN_STATES_LIST } from "../../constants/indiaLocations";
 
 export default function RecipientRegisterPage() {
@@ -44,9 +45,18 @@ export default function RecipientRegisterPage() {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [serverNotice, setServerNotice] = useState("");
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState("");
 
   const handleChange = (e) => {
     const { id, value } = e.target;
+
+    if (id === "email") {
+      if (isEmailVerified || verifiedEmail) {
+        setIsEmailVerified(false);
+        setVerifiedEmail("");
+      }
+    }
 
     if (id === "phone") {
       const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
@@ -74,10 +84,13 @@ export default function RecipientRegisterPage() {
     const newErrors = {};
 
     if (!formData.fullName.trim()) newErrors.fullName = "Full name is required";
-    if (!formData.email.trim()) {
+    const cleanEmail = formData.email.trim().toLowerCase();
+    if (!cleanEmail) {
       newErrors.email = "Email address is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(cleanEmail)) {
       newErrors.email = "Enter a valid email address";
+    } else if (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase()) {
+      newErrors.email = "Email verification is mandatory. Please verify your email with the 6-digit verification code before registering.";
     }
 
     if (!formData.password) {
@@ -112,6 +125,12 @@ export default function RecipientRegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const cleanEmail = formData.email.trim().toLowerCase();
+    if (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase()) {
+      setServerNotice("Email verification is mandatory. Please verify your email before submitting registration.");
+      return;
+    }
+
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -157,84 +176,84 @@ export default function RecipientRegisterPage() {
     : [];
 
   return (
-    <div className="max-w-5xl mx-auto py-10 px-4 sm:px-6">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+    <div className="max-w-7xl mx-auto py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
 
-        {/* LEFT BRAND PANEL (LIGHT-FIRST HEALTHCARE IDENTITY) */}
-        <div className="lg:col-span-5 bg-[#F8FAFC] text-[#1E293B] p-8 sm:p-10 rounded-2xl border border-[#E2E8F0] flex flex-col justify-between shadow-xs">
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#F0F7FF] border border-[#BFDBFE] text-[#315B83] text-xs font-semibold tracking-wide uppercase">
+        {/* LEFT BRAND PANEL */}
+        <div className="lg:col-span-4 xl:col-span-3.5 bg-white dark:bg-zinc-900 text-[#1E293B] dark:text-zinc-100 p-5 sm:p-6 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 flex flex-col justify-between shadow-xs sticky top-20 space-y-6">
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F0F7FF] dark:bg-blue-950/40 border border-[#BFDBFE] dark:border-blue-900/50 text-[#315B83] dark:text-blue-300 text-xs font-semibold tracking-wide uppercase">
                 <Building2 className="w-3.5 h-3.5" />
-                <span>HOSPITAL & RECIPIENT REQUISITION</span>
+                <span>Hospital & Recipient Portal</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#1E293B] tracking-tight">
-                Emergency Blood Coordination Portal.
+              <h1 className="text-lg sm:text-xl font-bold text-[#1E293B] dark:text-white tracking-tight">
+                Emergency Coordination
               </h1>
-              <p className="text-xs sm:text-sm text-[#475569] leading-relaxed font-normal">
+              <p className="text-xs text-[#475569] dark:text-zinc-400 leading-relaxed font-normal">
                 Register as a hospital coordinator or patient recipient. Discover compatible voluntary donors across distance presets [5..50 KM] and broadcast verified emergency requisitions in real time.
               </p>
             </div>
 
-            <div className="space-y-3 pt-4 border-t border-[#E2E8F0]">
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#E2E8F0]">
-                <div className="p-2 rounded-lg bg-[#F0F7FF] border border-[#BFDBFE] text-[#315B83] shrink-0 mt-0.5">
-                  <Search className="w-4 h-4" />
+            <div className="space-y-2.5 pt-4 border-t border-[#E2E8F0] dark:border-zinc-800">
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#F8FAFC] dark:bg-zinc-800/50 border border-[#E2E8F0] dark:border-zinc-700/60">
+                <div className="p-1.5 rounded-lg bg-[#F0F7FF] dark:bg-blue-950/50 border border-[#BFDBFE] dark:border-blue-900/50 text-[#315B83] dark:text-blue-400 shrink-0 mt-0.5">
+                  <Search className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-[#1E293B]">Dynamic Radius Matching</h4>
-                  <p className="text-[11px] text-[#475569] mt-0.5">Preset horizons: 5, 10, 20, 30, 50 KM with Haversine spherical precision.</p>
+                  <h4 className="text-xs font-bold text-[#1E293B] dark:text-white">Dynamic Radius Matching</h4>
+                  <p className="text-[11px] text-[#475569] dark:text-zinc-400 mt-0.5">Preset horizons: 5, 10, 20, 30, 50 KM with Haversine precision.</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#E2E8F0]">
-                <div className="p-2 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-[#A61B2B] shrink-0 mt-0.5">
-                  <Activity className="w-4 h-4" />
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#F8FAFC] dark:bg-zinc-800/50 border border-[#E2E8F0] dark:border-zinc-700/60">
+                <div className="p-1.5 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/50 border border-[#FECACA] dark:border-rose-900/50 text-[#A61B2B] dark:text-rose-400 shrink-0 mt-0.5">
+                  <Activity className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-[#1E293B]">Real-Time Socket Broadcast</h4>
-                  <p className="text-[11px] text-[#475569] mt-0.5">Instantly dispatch high-priority notifications to matching donors without page refresh.</p>
+                  <h4 className="text-xs font-bold text-[#1E293B] dark:text-white">Real-Time Dispatch</h4>
+                  <p className="text-[11px] text-[#475569] dark:text-zinc-400 mt-0.5">Instant live push notifications to matching donors in your zone.</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#E2E8F0]">
-                <div className="p-2 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0] text-[#28734A] shrink-0 mt-0.5">
-                  <ShieldCheck className="w-4 h-4" />
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#F8FAFC] dark:bg-zinc-800/50 border border-[#E2E8F0] dark:border-zinc-700/60">
+                <div className="p-1.5 rounded-lg bg-[#F0FDF4] dark:bg-emerald-950/50 border border-[#BBF7D0] dark:border-emerald-900/50 text-[#28734A] dark:text-emerald-400 shrink-0 mt-0.5">
+                  <ShieldCheck className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-[#1E293B]">Shielded Contact Coordination</h4>
-                  <p className="text-[11px] text-[#475569] mt-0.5">Donor contact details unlock securely the instant a voluntary donor accepts your request.</p>
+                  <h4 className="text-xs font-bold text-[#1E293B] dark:text-white">Shielded Contact Verification</h4>
+                  <p className="text-[11px] text-[#475569] dark:text-zinc-400 mt-0.5">Donor phone numbers unlock securely upon request acceptance.</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="pt-6 mt-8 border-t border-[#E2E8F0] text-[11px] text-[#64748B] flex items-center justify-between">
+          <div className="pt-4 border-t border-[#E2E8F0] dark:border-zinc-800 text-[11px] text-[#64748B] dark:text-zinc-400 flex items-center justify-between">
             <span>CLINICAL PROTOCOL</span>
-            <span className="text-[#315B83] font-semibold flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#315B83] animate-pulse" /> VERIFIED REQUISITIONS
+            <span className="text-[#315B83] dark:text-blue-400 font-semibold flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#315B83] dark:bg-blue-400 animate-pulse" /> VERIFIED REQUISITIONS
             </span>
           </div>
         </div>
 
         {/* RIGHT FORM PANEL */}
-        <div className="lg:col-span-7 bg-white p-8 sm:p-10 rounded-2xl border border-[#E2E8F0] flex flex-col justify-between transition-colors shadow-xs">
-          <div className="space-y-6">
+        <div className="lg:col-span-8 xl:col-span-8.5 bg-white dark:bg-zinc-900 p-6 sm:p-8 md:p-9 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#E2E8F0] dark:border-zinc-800">
             <div>
-              <h2 className="text-2xl font-bold text-[#1E293B] tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-bold text-[#1E293B] dark:text-white tracking-tight">
                 Create Recipient / Hospital Account
               </h2>
-              <p className="text-xs text-[#475569] mt-1">
-                Register to search compatible voluntary donors and broadcast emergency blood requisitions.
+              <p className="text-xs text-[#475569] dark:text-zinc-400 mt-0.5">
+                Register to search compatible donors and broadcast emergency requisitions.
               </p>
             </div>
 
             {/* Role Switcher Tabs */}
-            <div className="bg-[#F8FAFC] p-1 rounded-lg flex items-center gap-1 border border-[#E2E8F0]">
+            <div className="bg-[#F8FAFC] dark:bg-zinc-800/60 p-1 rounded-lg flex items-center gap-1 border border-[#E2E8F0] dark:border-zinc-700 shrink-0">
               <button
                 type="button"
                 onClick={() => navigate("/register/donor")}
-                className="flex-1 py-2 px-3 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 text-[#475569] hover:text-[#1E293B] cursor-pointer"
+                className="py-1.5 px-3 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 text-[#475569] dark:text-zinc-300 hover:text-[#1E293B] dark:hover:text-white cursor-pointer"
               >
                 <HeartHandshake className="w-3.5 h-3.5" />
                 Donor Registry
@@ -242,66 +261,69 @@ export default function RecipientRegisterPage() {
 
               <button
                 type="button"
-                className="flex-1 py-2 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 bg-[#315B83] text-white cursor-default shadow-xs"
+                className="py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 bg-[#315B83] text-white cursor-default shadow-xs"
               >
                 <Search className="w-3.5 h-3.5" />
                 Recipient Portal
               </button>
             </div>
+          </div>
 
-            {/* Account Type Selector */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#1E293B] uppercase tracking-wider">
-                Account Type Designation
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, accountType: "individual" }))}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    formData.accountType === "individual"
-                      ? "border-[#315B83] bg-[#F0F7FF] ring-1 ring-[#315B83]"
-                      : "border-[#E2E8F0] bg-white hover:bg-[#F8FAFC]"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <User className={`w-4 h-4 ${formData.accountType === "individual" ? "text-[#315B83]" : "text-[#64748B]"}`} />
-                    <span className="text-xs font-bold text-[#1E293B]">Individual / Family</span>
-                  </div>
-                  <p className="text-[11px] text-[#475569]">
-                    Personal blood requisition. Immediate access upon registration.
-                  </p>
-                </button>
+          {/* Account Type Selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[#1E293B] dark:text-zinc-200 uppercase tracking-wider">
+              Account Type Designation
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setFormData((prev) => ({ ...prev, accountType: "individual" }))}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  formData.accountType === "individual"
+                    ? "border-[#315B83] bg-[#F0F7FF] dark:bg-blue-950/40 dark:border-blue-800 ring-1 ring-[#315B83]"
+                    : "border-[#E2E8F0] dark:border-zinc-700 bg-white dark:bg-zinc-800/50 hover:bg-[#F8FAFC] dark:hover:bg-zinc-800"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <User className={`w-4 h-4 ${formData.accountType === "individual" ? "text-[#315B83] dark:text-blue-400" : "text-[#64748B] dark:text-zinc-400"}`} />
+                  <span className="text-xs font-bold text-[#1E293B] dark:text-white">Individual / Family</span>
+                </div>
+                <p className="text-[11px] text-[#475569] dark:text-zinc-400">
+                  Personal blood requisition. Immediate access upon registration.
+                </p>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, accountType: "hospital_rep" }))}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    formData.accountType === "hospital_rep"
-                      ? "border-[#315B83] bg-[#F0F7FF] ring-1 ring-[#315B83]"
-                      : "border-[#E2E8F0] bg-white hover:bg-[#F8FAFC]"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <Building2 className={`w-4 h-4 ${formData.accountType === "hospital_rep" ? "text-[#315B83]" : "text-[#64748B]"}`} />
-                    <span className="text-xs font-bold text-[#1E293B]">Hospital / Clinic Coordinator</span>
-                  </div>
-                  <p className="text-[11px] text-[#475569]">
-                    Institutional coordinator. Requires administrative verification.
-                  </p>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setFormData((prev) => ({ ...prev, accountType: "hospital_rep" }))}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  formData.accountType === "hospital_rep"
+                    ? "border-[#315B83] bg-[#F0F7FF] dark:bg-blue-950/40 dark:border-blue-800 ring-1 ring-[#315B83]"
+                    : "border-[#E2E8F0] dark:border-zinc-700 bg-white dark:bg-zinc-800/50 hover:bg-[#F8FAFC] dark:hover:bg-zinc-800"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Building2 className={`w-4 h-4 ${formData.accountType === "hospital_rep" ? "text-[#315B83] dark:text-blue-400" : "text-[#64748B] dark:text-zinc-400"}`} />
+                  <span className="text-xs font-bold text-[#1E293B] dark:text-white">Hospital / Clinic Coordinator</span>
+                </div>
+                <p className="text-[11px] text-[#475569] dark:text-zinc-400">
+                  Institutional coordinator. Requires administrative verification.
+                </p>
+              </button>
             </div>
+          </div>
 
-            {serverNotice && (
-              <div className="p-3.5 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-[#991B1B] text-xs flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-[#A61B2B] shrink-0 mt-0.5" />
-                <p>{serverNotice}</p>
-              </div>
-            )}
+          {serverNotice && (
+            <div className="p-3.5 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/40 border border-[#FECACA] dark:border-rose-900/50 text-[#991B1B] dark:text-rose-200 text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-[#A61B2B] dark:text-rose-400 shrink-0 mt-0.5" />
+              <p>{serverNotice}</p>
+            </div>
+          )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+            {/* ROW 1: TWO EQUAL COLUMNS (Full Name | Email Address) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 items-start">
+              <div>
                 <Input
                   label="Full Name"
                   id="fullName"
@@ -312,7 +334,13 @@ export default function RecipientRegisterPage() {
                   icon={User}
                   required
                 />
+                <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-[#64748B] dark:text-zinc-400">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Legal identity as per government ID</span>
+                </div>
+              </div>
 
+              <div>
                 <Input
                   label="Email Address"
                   id="email"
@@ -324,87 +352,99 @@ export default function RecipientRegisterPage() {
                   icon={Mail}
                   required
                 />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Password"
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={handleChange}
-                  error={errors.password}
-                  icon={Lock}
-                  required
-                />
-
-                <Input
-                  label="Confirm Password"
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  error={errors.confirmPassword}
-                  icon={Lock}
-                  required
+                <EmailVerificationSection
+                  email={formData.email}
+                  isVerified={isEmailVerified}
+                  setIsVerified={setIsEmailVerified}
+                  verifiedEmail={verifiedEmail}
+                  setVerifiedEmail={setVerifiedEmail}
+                  accentColor="navy"
                 />
               </div>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* ROW 2: TWO EQUAL COLUMNS (Password | Confirm Password) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+              <Input
+                label="Password"
+                id="password"
+                type="password"
+                placeholder="••••••••••••"
+                value={formData.password}
+                onChange={handleChange}
+                error={errors.password}
+                icon={Lock}
+                required
+              />
+
+              <Input
+                label="Confirm Password"
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••••••"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                error={errors.confirmPassword}
+                icon={Lock}
+                required
+              />
+            </div>
+
+            {/* ROW 3: TWO EQUAL COLUMNS (Phone Number | Gender) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+              <div>
                 <Input
-                  label="Mobile Number"
+                  label="Phone Number"
                   id="phone"
-                  type="tel"
-                  prefix="+91"
                   placeholder="9876543210"
                   value={formData.phone}
                   onChange={handleChange}
                   error={errors.phone}
                   icon={Phone}
                   required
-                />
-
-                <Select
-                  label="Gender"
-                  id="gender"
-                  options={GENDER_OPTIONS}
-                  value={formData.gender}
-                  onChange={handleChange}
-                  error={errors.gender}
-                  placeholder="Select Gender"
-                  icon={User}
+                  maxLength={10}
                 />
               </div>
 
-              {/* Dependent State & City Dropdowns */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Select
-                  label="State / Union Territory"
-                  id="state"
-                  options={INDIAN_STATES_LIST}
-                  value={formData.state}
-                  onChange={handleChange}
-                  error={errors.state}
-                  placeholder="Select State / UT"
-                  icon={MapPin}
-                  required
-                />
+              <Select
+                label="Gender"
+                id="gender"
+                options={GENDER_OPTIONS}
+                value={formData.gender}
+                onChange={handleChange}
+                error={errors.gender}
+                placeholder="Select Gender"
+                icon={User}
+              />
+            </div>
 
-                <Select
-                  label="City"
-                  id="location"
-                  options={cityOptions}
-                  value={formData.location}
-                  onChange={handleChange}
-                  error={errors.location}
-                  placeholder={formData.state ? "Select City" : "Select State First"}
-                  disabled={!formData.state}
-                  icon={MapPin}
-                  required
-                />
-              </div>
+            {/* ROW 4: TWO EQUAL COLUMNS (State | City) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+              <Select
+                label="State / Union Territory"
+                id="state"
+                options={INDIAN_STATES_LIST}
+                value={formData.state}
+                onChange={handleChange}
+                error={errors.state}
+                placeholder="Select State / UT"
+                icon={MapPin}
+                required
+              />
+
+              <Select
+                label="City"
+                id="location"
+                options={cityOptions}
+                value={formData.location}
+                onChange={handleChange}
+                error={errors.location}
+                placeholder={formData.state ? "Select City" : "Select State First"}
+                disabled={!formData.state}
+                icon={MapPin}
+                required
+              />
+            </div>
 
               {/* Conditional Hospital Information */}
               {formData.accountType === "hospital_rep" && (
@@ -468,26 +508,39 @@ export default function RecipientRegisterPage() {
                 </div>
               )}
 
-              <Button
-                type="submit"
-                variant="secondary"
-                className="w-full py-2.5 mt-4 font-bold"
-                isLoading={isLoading}
-              >
-                Complete Recipient Registration
-              </Button>
+              <div className="pt-4 space-y-2.5 border-t border-[#E2E8F0] dark:border-zinc-800">
+                {!isEmailVerified ? (
+                  <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs flex items-center gap-2 font-medium">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span>Email verification is mandatory before completing recipient registration.</span>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <span>Email verified &mdash; ready to complete registration.</span>
+                  </div>
+                )}
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  className="w-full py-2.5 font-bold shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  isLoading={isLoading}
+                  disabled={isLoading || !isEmailVerified || !verifiedEmail || formData.email.trim().toLowerCase() !== verifiedEmail.toLowerCase()}
+                >
+                  <span>Complete Recipient Registration</span>
+                </Button>
+              </div>
             </form>
+
+            <div className="pt-4 border-t border-[#E2E8F0] dark:border-zinc-800 text-center text-xs text-[#64748B] dark:text-zinc-400">
+              Already have a Recipient account?{" "}
+              <Link to="/login" className="text-[#315B83] dark:text-blue-400 font-bold hover:underline">
+                Sign In here →
+              </Link>
+            </div>
           </div>
 
-          <div className="pt-6 mt-6 border-t border-[#E2E8F0] text-center text-xs text-[#64748B]">
-            Already have a Recipient account?{" "}
-            <Link to="/login" className="text-[#315B83] font-bold hover:underline">
-              Sign In here →
-            </Link>
-          </div>
         </div>
-
       </div>
-    </div>
   );
 }

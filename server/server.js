@@ -19,10 +19,43 @@ import rbacTestRouter from "./src/routes/rbacTest.routes.js";
 import donorRouter from "./src/routes/donor.routes.js";
 import bloodRequestRouter from "./src/routes/bloodRequest.routes.js";
 import adminRouter from "./src/routes/admin.routes.js";
+import hospitalRouter from "./src/routes/hospital.routes.js";
+import patientRouter from "./src/routes/patient.routes.js";
+import complaintRouter from "./src/routes/complaint.routes.js";
+import otpRouter from "./src/routes/otp.routes.js";
+import matchRouter from "./src/routes/match.routes.js";
+import inAppNotificationRouter from "./src/routes/inAppNotification.routes.js";
+import { runMatchCleanupJob } from "./src/services/matchCleanupService.js";
 
 dotenv.config();
 
 const app = express();
+
+// Secure trusted proxy configuration for Render and production environments
+// Render uses 1 reverse proxy hop in front of the application container.
+// Never set to `true` (permissive), which blindly trusts arbitrary client-supplied X-Forwarded-For headers.
+const isRender = process.env.RENDER === "true" || process.env.RENDER === "1";
+const isProd = process.env.NODE_ENV === "production";
+const trustProxyEnv = process.env.TRUST_PROXY;
+
+let trustProxyHops = false;
+if (trustProxyEnv !== undefined && trustProxyEnv !== "") {
+  if (trustProxyEnv === "false" || trustProxyEnv === "0") {
+    trustProxyHops = false;
+  } else if (trustProxyEnv === "true") {
+    trustProxyHops = 1; // Secure default of 1 hop when boolean true is passed
+  } else if (!isNaN(Number(trustProxyEnv))) {
+    trustProxyHops = parseInt(trustProxyEnv, 10);
+  } else {
+    trustProxyHops = trustProxyEnv;
+  }
+} else if (isRender || isProd) {
+  trustProxyHops = 1;
+}
+
+if (trustProxyHops !== false) {
+  app.set("trust proxy", trustProxyHops);
+}
 
 app.use(helmet());
 app.use(sanitizeMiddleware);
@@ -49,6 +82,12 @@ app.use("/api/auth", authRouter);
 app.use("/api/donors", donorRouter);
 app.use("/api/requests", bloodRequestRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/hospitals", hospitalRouter);
+app.use("/api/patients", patientRouter);
+app.use("/api/complaints", complaintRouter);
+app.use("/api/otp", otpRouter);
+app.use("/api/matches", matchRouter);
+app.use("/api/notifications", inAppNotificationRouter);
 
 if (process.env.NODE_ENV !== "production") {
   app.use("/api/test/rbac", rbacTestRouter);
@@ -64,6 +103,20 @@ const PORT = process.env.PORT || 5000;
 
 connectDB().then(async () => {
   await seedAdminUser();
+
+  // 1. Startup execution for overdue 45-day retention cleanup (recovers overdue records on server restart / Render wake-up)
+  runMatchCleanupJob().catch((err) =>
+    console.error("[CleanupJob] Error during startup match cleanup:", err.message)
+  );
+
+  // 2. Schedule recurring daily 45-day retention cleanup for completed matches (runs every 24 hours)
+  const cleanupInterval = setInterval(() => {
+    runMatchCleanupJob().catch((err) =>
+      console.error("[CleanupJob] Error during automated match cleanup:", err.message)
+    );
+  }, 24 * 60 * 60 * 1000);
+  if (cleanupInterval.unref) cleanupInterval.unref();
+
   server.listen(PORT, () => {
     const envMode = process.env.NODE_ENV || "development";
     console.log("[BloodWard Server] Running in " + envMode + " mode on port " + PORT);

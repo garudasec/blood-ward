@@ -1,4 +1,4 @@
-import './testDb.js';
+import { seedVerifiedEmailOtp } from './testDb.js';
 import express from "express";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
@@ -27,7 +27,7 @@ app.use("/api/donors", donorRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-const PORT = 42802;
+const PORT = 42803;
 let server;
 let baseUrl = "http://127.0.0.1:" + PORT;
 
@@ -98,6 +98,7 @@ async function runTests() {
     // -------------------------------------------------------------
     // 1. RECIPIENT REGISTRATION & LOCATION PERSISTENCE
     // -------------------------------------------------------------
+    await seedVerifiedEmailOtp("rec_delhi@search_e2e_test.com");
     const regRes = await request("/api/auth/register/recipient", {
       method: "POST",
       body: {
@@ -142,6 +143,7 @@ async function runTests() {
     // 2. DONOR REGISTRATIONS FOR SEARCH
     // -------------------------------------------------------------
     // Donor 1: Delhi (O+, Available, near 28.6139, 77.2090)
+    await seedVerifiedEmailOtp("delhi_donor@search_e2e_test.com");
     const d1Res = await request("/api/auth/register/donor", {
       method: "POST",
       body: {
@@ -162,6 +164,7 @@ async function runTests() {
     assert("4b. Donor 1 location automatically derived in MongoDB", d1Doc && d1Doc.location && d1Doc.location.type === "Point" && d1Doc.location.coordinates[0] === 77.209 && d1Doc.location.coordinates[1] === 28.6139, JSON.stringify(d1Doc ? d1Doc.location : null));
 
     // Donor 2: Mumbai (B+, Available, near 19.0760, 72.8777)
+    await seedVerifiedEmailOtp("mumbai_donor@search_e2e_test.com");
     const d2Res = await request("/api/auth/register/donor", {
       method: "POST",
       body: {

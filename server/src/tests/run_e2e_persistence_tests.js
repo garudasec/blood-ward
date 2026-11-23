@@ -1,4 +1,4 @@
-import './testDb.js';
+import { seedVerifiedEmailOtp } from './testDb.js';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -93,6 +93,7 @@ async function runTests() {
   }
 
   // 1. Register Donor with O+ and default Not Available
+  await seedVerifiedEmailOtp('donor_e2e_test@bloodward.test');
   const regRes = await request('/api/auth/register/donor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

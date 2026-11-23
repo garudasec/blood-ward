@@ -36,6 +36,14 @@ export const protect = async (req, res, next) => {
       return next(new AppError('Your account has been blocked by system administration.', 403));
     }
 
+    if (decoded.tokenVersion !== undefined && currentUser.tokenVersion !== undefined) {
+      if (decoded.tokenVersion !== currentUser.tokenVersion) {
+        return next(new AppError('Password recently changed. Please log in again with your new password.', 401));
+      }
+    } else if (currentUser.changedPasswordAfter && currentUser.changedPasswordAfter(decoded.iat)) {
+      return next(new AppError('Password recently changed. Please log in again with your new password.', 401));
+    }
+
     req.user = currentUser;
     next();
   } catch (error) {

@@ -36,11 +36,26 @@ export const sanitizeBloodRequest = (doc, userRole = null, userId = null) => {
     additionalNotes: doc.additionalNotes || '',
     donorResponsesCount: doc.donorResponsesCount || 0,
     acceptedDonor: doc.acceptedDonor ? (doc.acceptedDonor._id || doc.acceptedDonor) : null,
+    hospital: doc.hospital ? (doc.hospital._id || doc.hospital) : null,
+    patient: doc.patient ? (doc.patient._id || doc.patient) : null,
+    patientDetails: doc.patientDetails || null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
 
   if (isOwner || isAcceptedDonor || isAdmin) {
+    if (doc.recipient && typeof doc.recipient === 'object' && doc.recipient.phone) {
+      if (['Donor Accepted', 'In Progress', 'Fulfilled'].includes(doc.status)) {
+        baseRequest.recipientPhone = doc.recipient.phone;
+        baseRequest.recipientDetails = {
+          id: doc.recipient._id,
+          fullName: doc.recipient.fullName,
+          phone: doc.recipient.phone,
+          city: doc.recipient.city,
+        };
+      }
+    }
+
     if (doc.acceptedDonor && typeof doc.acceptedDonor === 'object' && doc.acceptedDonor.fullName) {
       baseRequest.acceptedDonorDetails = {
         id: doc.acceptedDonor._id,

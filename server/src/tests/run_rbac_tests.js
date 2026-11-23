@@ -243,6 +243,7 @@ const runTests = async () => {
   if (totalPassed !== results.length) {
     process.exit(1);
   }
+  process.exit(0);
 };
 
 runTests().catch((e) => {
