@@ -29,6 +29,26 @@ import { runMatchCleanupJob } from "./src/services/matchCleanupService.js";
 
 dotenv.config();
 
+// Validate critical security environment variables on startup
+const validateSecurityConfig = () => {
+  const missing = [];
+  if (!process.env.JWT_SECRET) missing.push("JWT_SECRET");
+  if (!process.env.ENCRYPTION_SECRET || process.env.ENCRYPTION_SECRET.trim().length < 32) {
+    missing.push("ENCRYPTION_SECRET (min 32 chars)");
+  }
+  if (!process.env.OTP_HMAC_SECRET || process.env.OTP_HMAC_SECRET.trim().length < 32) {
+    missing.push("OTP_HMAC_SECRET (min 32 chars)");
+  }
+  if (missing.length > 0) {
+    console.error(
+      `[SECURITY CONFIGURATION WARNING] The following required security environment variables are missing or invalid: ${missing.join(
+        ", "
+      )}. Features depending on them (such as OTP email verification and encrypted database credentials) will fail until configured in your environment settings (e.g. Render Dashboard).`
+    );
+  }
+};
+validateSecurityConfig();
+
 const app = express();
 
 // Secure trusted proxy configuration for Render and production environments

@@ -237,10 +237,16 @@ export async function generateAndSendOtp({ target, targetType = 'email', purpose
         testOtp: rawOtp,
       };
     }
+    console.error(`[OTP Dispatch Error] Failed to send OTP email to ${normalized}:`, dispatchResult.error);
+    const sanitizedError =
+      process.env.NODE_ENV === 'production'
+        ? 'Failed to deliver verification code. Please check your email address or try again later.'
+        : `Failed to deliver verification code: ${dispatchResult.error}`;
+
     return {
       success: false,
       errorCode: dispatchResult.errorCode,
-      error: `Failed to deliver verification code: ${dispatchResult.error}`,
+      error: sanitizedError,
     };
   }
 

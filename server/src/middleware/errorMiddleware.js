@@ -10,6 +10,12 @@ const errorHandler = (err, req, res, next) => {
     message = `Invalid format for ${err.path || 'identifier'}.`;
   }
 
+  // Sanitize 500/internal errors in production to avoid leaking sensitive configuration, stack traces, or secrets
+  if (process.env.NODE_ENV === 'production' && (!err.isOperational || statusCode >= 500)) {
+    console.error(`[Server Error] ${statusCode} - ${err.message}`, err.stack);
+    message = 'An unexpected server error occurred. Please try again later.';
+  }
+
   const response = {
     success: false,
     status,

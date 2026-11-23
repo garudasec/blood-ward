@@ -147,7 +147,7 @@ export default function EmailVerificationSection({
   // =========================================================================
   if (isVerified && verifiedEmail && (email || "").trim().toLowerCase() === verifiedEmail.toLowerCase()) {
     return (
-      <div className="mt-1.5 h-[28px] w-full flex items-center justify-between px-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs transition-colors">
+      <div className="mt-1.5 min-h-[28px] py-1 sm:py-0 sm:h-[28px] w-full flex items-center justify-between px-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs transition-colors gap-1.5">
         <div className="flex items-center gap-1.5 min-w-0">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span className="font-semibold text-[11px] text-emerald-800 dark:text-emerald-300 truncate">
@@ -170,7 +170,7 @@ export default function EmailVerificationSection({
   if (status === "idle" || status === "sending") {
     return (
       <div className="mt-1.5 space-y-1">
-        <div className="h-[28px] w-full flex items-center justify-between px-2.5 rounded-md bg-[#F8FAFC] dark:bg-zinc-800/40 border border-[#E2E8F0] dark:border-zinc-800 text-xs transition-colors">
+        <div className="min-h-[28px] py-1 sm:py-0 sm:h-[28px] w-full flex items-center justify-between px-2.5 rounded-md bg-[#F8FAFC] dark:bg-zinc-800/40 border border-[#E2E8F0] dark:border-zinc-800 text-xs transition-colors gap-2">
           <div className="flex items-center gap-1.5 text-[11px] text-[#64748B] dark:text-zinc-400 min-w-0">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
             <span className="truncate">
@@ -182,7 +182,7 @@ export default function EmailVerificationSection({
             type="button"
             onClick={handleSendOtp}
             disabled={!isValidEmail || status === "sending"}
-            className={`inline-flex items-center gap-1 text-[11px] font-semibold py-0.5 px-2 rounded transition-all cursor-pointer select-none ${
+            className={`inline-flex items-center gap-1 text-[11px] font-semibold py-1 px-2.5 sm:py-0.5 sm:px-2 rounded transition-all cursor-pointer select-none shrink-0 ${
               accentColor === "navy"
                 ? "bg-[#315B83] text-white hover:bg-[#264666]"
                 : "bg-[#A61B2B] text-white hover:bg-[#8E1724]"
@@ -203,9 +203,9 @@ export default function EmailVerificationSection({
         </div>
 
         {error && (
-          <div className="px-2 py-0.5 text-[10px] font-medium text-[#A61B2B] dark:text-rose-400 flex items-center gap-1">
-            <AlertCircle className="w-3 h-3 shrink-0" />
-            <span className="truncate">{error}</span>
+          <div className="px-2 py-0.5 text-[10px] font-medium text-[#A61B2B] dark:text-rose-400 flex items-start gap-1">
+            <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
+            <span className="break-words leading-tight">{error}</span>
           </div>
         )}
       </div>
@@ -219,7 +219,7 @@ export default function EmailVerificationSection({
     <div className="mt-1.5 space-y-1">
       <div className="w-full p-1.5 rounded-md bg-[#F8FAFC] dark:bg-zinc-800/50 border border-[#CBD5E1] dark:border-zinc-700 text-xs transition-all space-y-1.5">
         {/* Main Controls Row: OTP Input + Verify Button + Resend */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5">
           <input
             type="text"
             inputMode="numeric"
@@ -228,7 +228,7 @@ export default function EmailVerificationSection({
             placeholder="6-digit OTP"
             value={otp}
             onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            className="w-24 sm:w-28 h-[28px] px-2 text-center text-xs font-bold font-mono tracking-widest rounded border border-[#CBD5E1] dark:border-zinc-600 bg-white dark:bg-zinc-900 text-[#1E293B] dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-[#A61B2B]"
+            className="w-24 sm:w-28 h-[30px] sm:h-[28px] px-2 text-center text-xs font-bold font-mono tracking-widest rounded border border-[#CBD5E1] dark:border-zinc-600 bg-white dark:bg-zinc-900 text-[#1E293B] dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-[#A61B2B]"
           />
 
           <Button
@@ -237,7 +237,7 @@ export default function EmailVerificationSection({
             size="sm"
             onClick={handleVerifyOtp}
             disabled={otp.length !== 6 || status === "verifying"}
-            className="h-[28px] py-0 px-2.5 text-[11px] font-semibold rounded shrink-0 flex items-center gap-1"
+            className="h-[30px] sm:h-[28px] py-0 px-2.5 text-[11px] font-semibold rounded shrink-0 flex items-center gap-1"
           >
             {status === "verifying" ? (
               <>
@@ -278,9 +278,9 @@ export default function EmailVerificationSection({
       </div>
 
       {error && (
-        <div className="px-2 py-0.5 text-[10px] font-medium text-[#A61B2B] dark:text-rose-400 flex items-center gap-1">
-          <AlertCircle className="w-3 h-3 shrink-0" />
-          <span className="truncate">{error}</span>
+        <div className="px-2 py-0.5 text-[10px] font-medium text-[#A61B2B] dark:text-rose-400 flex items-start gap-1">
+          <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
+          <span className="break-words leading-tight">{error}</span>
         </div>
       )}
     </div>
