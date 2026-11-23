@@ -80,4 +80,64 @@ export const authService = {
       throw error.response?.data || { message: "Logout failed" };
     }
   },
+
+  // Request password reset link
+  async forgotPassword(email) {
+    try {
+      const response = await api.post("/auth/forgot-password", { email });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: "Failed to request password reset" };
+    }
+  },
+
+  // Reset password with token
+  async resetPassword(token, passwordData) {
+    try {
+      const response = await api.post(`/auth/reset-password/${token}`, passwordData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: "Failed to reset password" };
+    }
+  },
+
+  // Request password reset via 6-digit Email OTP
+  async forgotPasswordOtp(email) {
+    try {
+      const response = await api.post("/auth/forgot-password-otp", { email });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: "Failed to request password reset code" };
+    }
+  },
+
+  // Reset password using 6-digit Email OTP
+  async resetPasswordOtp(data) {
+    try {
+      const response = await api.post("/auth/reset-password-otp", data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: "Failed to reset password using code" };
+    }
+  },
+
+  // Send email verification OTP
+  async sendEmailOtp(email, purpose = "verification") {
+    try {
+      const response = await api.post("/otp/send-email-otp", { email, purpose });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: "Failed to send email verification code" };
+    }
+  },
+
+  // Verify email verification OTP
+  async verifyEmailOtp(email, otp, purpose = "verification") {
+    try {
+      const response = await api.post("/otp/verify-email-otp", { email, otp, purpose });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: "Email verification failed" };
+    }
+  },
 };

@@ -58,4 +58,4 @@ export const DONOR_COMPATIBILITY = {
   "AB+": ["AB+"],
 };
 
-export const GENDER_OPTIONS = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
+export const GENDER_OPTIONS = ['Male', 'Female', 'Prefer not to say'];

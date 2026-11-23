@@ -1,6 +1,7 @@
 import User from '../models/user.model.js';
 import BloodRequest from '../models/bloodRequest.js';
 import AuditLog from '../models/auditLog.js';
+import Hospital from '../models/hospital.model.js';
 import AppError from '../utils/appError.js';
 import { logAuditEvent } from '../utils/auditLogger.js';
 import { emitToUser } from '../socket.js';
@@ -370,6 +371,15 @@ export const verifyUser = async (req, res, next) => {
       }
     }
 
+    if (targetUser.hospital) {
+      await Hospital.findByIdAndUpdate(targetUser.hospital, {
+        verificationStatus: status,
+        verificationRejectionReason: status === 'rejected' ? String(rejectionReason).trim() : '',
+        verifiedBy: status === 'verified' ? req.user._id : null,
+        verifiedAt: status === 'verified' ? new Date() : null,
+      });
+    }
+
     await targetUser.save({ validateBeforeSave: false });
 
     await logAuditEvent({
@@ -578,6 +588,55 @@ export const getAuditLogs = async (req, res, next) => {
       page: pageNum,
       totalPages: Math.ceil(total / limitNum) || 1,
       logs: safeLogs,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get paginated hospital list for administrative management
+ * @route   GET /api/admin/hospitals
+ * @access  Private (Admin only)
+ */
+export const getAdminHospitals = async (req, res, next) => {
+  try {
+    const { status, search, page = 1, limit = 10 } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
+
+    const query = {};
+
+    if (status && ['pending', 'verified', 'rejected'].includes(status)) {
+      query.verificationStatus = status;
+    }
+
+    if (search && typeof search === 'string' && search.trim() !== '') {
+      const term = search.trim();
+      query.$or = [
+        { name: { $regex: term, $options: 'i' } },
+        { city: { $regex: term, $options: 'i' } },
+        { hospitalId: { $regex: term, $options: 'i' } },
+      ];
+    }
+
+    const total = await Hospital.countDocuments(query);
+    const skip = (pageNum - 1) * limitNum;
+
+    const hospitals = await Hospital.find(query)
+      .populate('verifiedBy', 'fullName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    res.status(200).json({
+      success: true,
+      count: hospitals.length,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum) || 1,
+      hospitals,
     });
   } catch (error) {
     next(error);

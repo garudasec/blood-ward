@@ -1,13 +1,23 @@
+import crypto from 'crypto';
 import { getCompatibleRecipientBloodGroups, isBloodCompatible } from '../utils/bloodCompatibility.js';
 import { DEFAULT_MATCHING_RADIUS_KM } from '../config/constants.js';
 import BloodRequest from '../models/bloodRequest.js';
 import User from '../models/user.model.js';
+import Hospital from '../models/hospital.model.js';
+import Patient from '../models/patient.model.js';
 import AppError from '../utils/appError.js';
-import { isValidBloodGroup, isValidGeoCoordinates, validateDonorDOB } from '../utils/validators.js';
+import { isValidBloodGroup, isValidGeoCoordinates, validateDonorDOB, normalizeIndianPhone } from '../utils/validators.js';
+import { generatePatientId, generateHospitalId } from '../utils/idGenerator.js';
 import { sanitizeBloodRequest } from '../utils/requestSanitizer.js';
 import { logAuditEvent } from '../utils/auditLogger.js';
 import { getCityCoordinates } from '../utils/cityCoordinates.js';
 import { notifyMatchingDonors, emitToUser, emitToRole } from '../socket.js';
+import Match from '../models/match.model.js';
+import {
+  notifyDonorAccepted,
+  notifyDonorDeclined,
+  notifyDonationCompleted,
+} from '../services/matchNotificationService.js';
 
 /**
  * Auto-expiration helper for requests whose requiredDate has passed
@@ -123,6 +133,12 @@ export const createBloodRequest = async (req, res, next) => {
       requiredDate,
       radiusKm,
       additionalNotes = '',
+      patientName,
+      patientContactPhone,
+      patientAge,
+      patientGender,
+      hospitalRegistrationNumber,
+      wardDepartment,
     } = req.body;
 
     if (!bloodGroup || !isValidBloodGroup(bloodGroup)) {
@@ -199,9 +215,90 @@ export const createBloodRequest = async (req, res, next) => {
     const isVerified = !isHospitalRep || recipient.verificationStatus === 'verified';
     const initialStatus = isVerified ? 'Active' : 'Pending Verification';
 
+    let linkedHospital = null;
+    let linkedPatient = null;
+    let patientDetails = {};
+    let generatedClaimCode = null;
+
+    if (isHospitalRep) {
+      const trimmedHosp = hospitalName.trim();
+      const escapedHosp = trimmedHosp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedCity = targetCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      linkedHospital = recipient.hospital
+        ? await Hospital.findById(recipient.hospital)
+        : await Hospital.findOne({
+            name: { $regex: new RegExp(`^${escapedHosp}$`, 'i') },
+            city: { $regex: new RegExp(`^${escapedCity}$`, 'i') },
+          });
+
+      if (!linkedHospital) {
+        const hospitalId = await generateHospitalId();
+        linkedHospital = await Hospital.create({
+          hospitalId,
+          name: trimmedHosp,
+          address: recipient.hospitalAddress || '',
+          city: targetCity,
+          state: targetState,
+          contactPhone: recipient.hospitalContactPhone || '',
+          verificationStatus: recipient.verificationStatus === 'verified' ? 'verified' : 'pending',
+        });
+      }
+
+      if (!recipient.hospital) {
+        recipient.hospital = linkedHospital._id;
+        await recipient.save({ validateBeforeSave: false });
+      }
+
+      const pName = patientName && typeof patientName === 'string' && patientName.trim()
+        ? patientName.trim()
+        : 'Patient';
+
+      const patientId = await generatePatientId();
+      generatedClaimCode = `BW-CLM-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+      const claimCodeHash = crypto.createHash('sha256').update(generatedClaimCode).digest('hex');
+      const claimCodeExpires = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
+      linkedPatient = await Patient.create({
+        patientId,
+        name: pName,
+        contactPhone: patientContactPhone ? (normalizeIndianPhone(patientContactPhone) || patientContactPhone.trim()) : '',
+        age: patientAge ? Number(patientAge) : null,
+        gender: patientGender ? patientGender.trim() : '',
+        bloodGroup,
+        hospital: linkedHospital._id,
+        hospitalRegistrationNumber: hospitalRegistrationNumber ? hospitalRegistrationNumber.trim() : '',
+        wardDepartment: wardDepartment ? wardDepartment.trim() : '',
+        claimCodeHash,
+        claimCodeExpires,
+        claimCodeUsed: false,
+        createdByUser: req.user._id,
+      });
+
+      patientDetails = {
+        patientId: linkedPatient.patientId,
+        name: linkedPatient.name,
+        contactPhone: linkedPatient.contactPhone,
+        age: linkedPatient.age,
+        gender: linkedPatient.gender,
+        hospitalRegistrationNumber: linkedPatient.hospitalRegistrationNumber,
+        wardDepartment: linkedPatient.wardDepartment,
+      };
+    } else {
+      patientDetails = {
+        patientId: '',
+        name: patientName ? patientName.trim() : (recipient?.fullName || req.user.fullName || 'Recipient'),
+        contactPhone: patientContactPhone ? (normalizeIndianPhone(patientContactPhone) || patientContactPhone.trim()) : (recipient?.phone || ''),
+        age: patientAge ? Number(patientAge) : null,
+        gender: patientGender ? patientGender.trim() : '',
+        hospitalRegistrationNumber: '',
+        wardDepartment: '',
+      };
+    }
+
     const newRequest = await BloodRequest.create({
       recipient: req.user._id || req.user.id,
-      recipientName: recipient?.fullName || req.user.fullName || 'Recipient',
+      recipientName: isHospitalRep && patientDetails.name ? patientDetails.name : (recipient?.fullName || req.user.fullName || 'Recipient'),
       bloodGroup,
       unitsNeeded: units,
       hospitalName: hospitalName.trim(),
@@ -213,6 +310,9 @@ export const createBloodRequest = async (req, res, next) => {
       notifiedDonors: [],
       additionalNotes: additionalNotes ? additionalNotes.trim() : '',
       status: initialStatus,
+      hospital: linkedHospital ? linkedHospital._id : null,
+      patient: linkedPatient ? linkedPatient._id : null,
+      patientDetails,
     });
 
     logAuditEvent({
@@ -244,6 +344,7 @@ export const createBloodRequest = async (req, res, next) => {
         : 'Blood request submitted and held in Pending Verification. Donor matching will begin once hospital account verification is approved.',
       request: sanitizeBloodRequest(newRequest, req.user.role, req.user._id || req.user.id),
       isPendingVerification: !isVerified,
+      ...(generatedClaimCode ? { claimCode: generatedClaimCode, patientId: linkedPatient?.patientId } : {}),
     });
   } catch (error) {
     next(error);
@@ -579,6 +680,29 @@ export const acceptBloodRequest = async (req, res, next) => {
       details: `Donor ${req.user.fullName} accepted blood request ${id}.`,
     });
 
+    // Update or create persistent match record and notify
+    try {
+      let match = await Match.findOne({ request: id, donor: req.user._id });
+      if (!match) {
+        match = await Match.create({
+          request: id,
+          donor: req.user._id,
+          recipient: updatedRequest.recipient?._id || updatedRequest.recipient,
+          bloodGroup: updatedRequest.bloodGroup,
+          hospitalName: updatedRequest.hospitalName,
+          city: updatedRequest.city,
+          state: updatedRequest.state || '',
+          unitsNeeded: updatedRequest.unitsNeeded || 1,
+          urgency: updatedRequest.urgency || 'Normal',
+          status: 'Accepted',
+          donorRespondedAt: new Date(),
+        });
+      }
+      await notifyDonorAccepted(match._id, req.user, updatedRequest);
+    } catch (matchErr) {
+      console.error('[BloodRequestController] Error notifying donor acceptance on match:', matchErr.message);
+    }
+
     res.status(200).json({
       success: true,
       message: 'Blood request accepted successfully.',
@@ -659,6 +783,29 @@ export const rejectBloodRequest = async (req, res, next) => {
       ipAddress: req.ip,
       severity: 'LOW',
     });
+
+    // Update or create persistent match record and notify decline
+    try {
+      let match = await Match.findOne({ request: id, donor: req.user._id });
+      if (!match) {
+        match = await Match.create({
+          request: id,
+          donor: req.user._id,
+          recipient: bloodRequest.recipient?._id || bloodRequest.recipient,
+          bloodGroup: bloodRequest.bloodGroup,
+          hospitalName: bloodRequest.hospitalName,
+          city: bloodRequest.city,
+          state: bloodRequest.state || '',
+          unitsNeeded: bloodRequest.unitsNeeded || 1,
+          urgency: bloodRequest.urgency || 'Normal',
+          status: 'Declined',
+          donorRespondedAt: new Date(),
+        });
+      }
+      await notifyDonorDeclined(match._id, req.user, bloodRequest);
+    } catch (matchErr) {
+      console.error('[BloodRequestController] Error notifying donor decline on match:', matchErr.message);
+    }
 
     res.status(200).json({
       success: true,
@@ -765,6 +912,23 @@ export const fulfillBloodRequest = async (req, res, next) => {
       details: `Blood request ${id} successfully fulfilled.`,
     });
 
+    // Mark donation completed in Match lifecycle and dispatch notifications
+    try {
+      const match = await Match.findOne({
+        request: id,
+        status: 'Accepted',
+      });
+      if (match) {
+        const donorUser = await User.findById(bloodRequest.acceptedDonor);
+        const recipientUser = await User.findById(bloodRequest.recipient);
+        if (donorUser && recipientUser) {
+          await notifyDonationCompleted(match._id, donorUser, recipientUser, bloodRequest);
+        }
+      }
+    } catch (matchErr) {
+      console.error('[BloodRequestController] Error completing match notification lifecycle:', matchErr.message);
+    }
+
     res.status(200).json({
       success: true,
       message: 'Blood request marked fulfilled successfully.',
@@ -803,6 +967,18 @@ export const cancelBloodRequest = async (req, res, next) => {
 
     bloodRequest.status = 'Cancelled';
     await bloodRequest.save({ validateBeforeSave: false });
+
+    // Mark active matches as Cancelled and release donor active lock
+    await Match.updateMany(
+      { request: id, status: { $in: ['Potential Match', 'Awaiting Response', 'Accepted'] } },
+      { $set: { status: 'Cancelled' } }
+    );
+    if (bloodRequest.acceptedDonor) {
+      await User.updateOne(
+        { _id: bloodRequest.acceptedDonor },
+        { $set: { activeAcceptedMatch: null } }
+      );
+    }
 
     const cPayload = { requestId: id, status: 'Cancelled' };
     if (bloodRequest.recipient) emitToUser(bloodRequest.recipient, 'bloodRequest:cancelled', cPayload);

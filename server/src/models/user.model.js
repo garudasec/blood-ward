@@ -167,6 +167,45 @@ const userSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    isPhoneVerified: {
+      type: Boolean,
+      default: false,
+    },
+    phoneVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    hospital: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Hospital",
+      default: null,
+    },
+    passwordResetToken: {
+      type: String,
+      select: false,
+      default: null,
+    },
+    passwordResetExpires: {
+      type: Date,
+      select: false,
+      default: null,
+    },
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+    },
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
     profilePhoto: {
       type: String,
       default: "",
@@ -211,6 +250,11 @@ const userSchema = new mongoose.Schema(
       enum: ["available", "not_available"],
       default: "not_available",
     },
+    activeAcceptedMatch: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Match",
+      default: null,
+    },
     isBlocked: {
       type: Boolean,
       default: false,
@@ -251,6 +295,14 @@ userSchema.pre("save", async function () {
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
+  if (this.passwordChangedAt) {
+    const changedTimestamp = parseInt(this.passwordChangedAt.getTime() / 1000, 10);
+    return JWTTimestamp < changedTimestamp;
+  }
+  return false;
 };
 
 const User = mongoose.model("User", userSchema);
