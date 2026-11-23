@@ -331,11 +331,11 @@ export default function DonorRegisterPage() {
     : [];
 
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto py-6 sm:py-10 px-3 sm:px-6 lg:px-8">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
 
         {/* LEFT BRAND PANEL & STAGE PROGRESS SIDEBAR */}
-        <div className="lg:col-span-4 xl:col-span-3.5 bg-white dark:bg-zinc-900 text-[#1E293B] dark:text-zinc-100 p-5 sm:p-6 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 flex flex-col justify-between shadow-xs sticky top-20 space-y-6">
+        <div className="lg:col-span-4 xl:col-span-3.5 bg-white dark:bg-zinc-900 text-[#1E293B] dark:text-zinc-100 p-4 sm:p-6 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 flex flex-col justify-between shadow-xs static lg:sticky lg:top-20 space-y-6">
           <div className="space-y-5">
             <div className="space-y-2">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#FEF2F2] dark:bg-rose-950/40 border border-[#FECACA] dark:border-rose-900/50 text-[#A61B2B] dark:text-rose-300 text-xs font-semibold">
@@ -422,8 +422,8 @@ export default function DonorRegisterPage() {
         </div>
 
         {/* RIGHT FORM PANEL */}
-        <div className="lg:col-span-8 xl:col-span-8.5 bg-white dark:bg-zinc-900 p-6 sm:p-8 md:p-9 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#E2E8F0] dark:border-zinc-800">
+        <div className="lg:col-span-8 xl:col-span-8.5 bg-white dark:bg-zinc-900 p-4 sm:p-6 md:p-8 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 shadow-xs space-y-5 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-2 border-b border-[#E2E8F0] dark:border-zinc-800">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-[#1E293B] dark:text-white tracking-tight">
                 Create Voluntary Donor Account
@@ -434,40 +434,40 @@ export default function DonorRegisterPage() {
             </div>
 
             {/* Role Switcher Tabs */}
-            <div className="bg-[#F8FAFC] dark:bg-zinc-800/60 p-1 rounded-lg flex items-center gap-1 border border-[#E2E8F0] dark:border-zinc-700 shrink-0">
+            <div className="bg-[#F8FAFC] dark:bg-zinc-800/60 p-1 rounded-lg grid grid-cols-2 sm:flex sm:items-center gap-1 border border-[#E2E8F0] dark:border-zinc-700 shrink-0 w-full sm:w-auto">
               <button
                 type="button"
-                className="py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 bg-[#A61B2B] text-white cursor-default shadow-xs"
+                className="py-1.5 px-2.5 sm:px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 bg-[#A61B2B] text-white cursor-default shadow-xs"
               >
-                <HeartHandshake className="w-3.5 h-3.5" />
-                Donor
+                <HeartHandshake className="w-3.5 h-3.5 shrink-0" />
+                <span>Donor</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate("/register/recipient")}
-                className="py-1.5 px-3 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 text-[#475569] dark:text-zinc-300 hover:text-[#1E293B] dark:hover:text-white cursor-pointer"
+                className="py-1.5 px-2.5 sm:px-3 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 text-[#475569] dark:text-zinc-300 hover:text-[#1E293B] dark:hover:text-white cursor-pointer"
               >
-                <Search className="w-3.5 h-3.5" />
-                Recipient Portal
+                <Search className="w-3.5 h-3.5 shrink-0" />
+                <span>Recipient Portal</span>
               </button>
             </div>
           </div>
 
           {/* Compact Step Progress Bar */}
-          <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-[#F8FAFC] dark:bg-zinc-800/50 border border-[#E2E8F0] dark:border-zinc-800 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-[#A61B2B] text-white font-bold text-[10px] flex items-center justify-center">
+          <div className="flex items-center justify-between py-2 px-2.5 sm:px-3 rounded-xl bg-[#F8FAFC] dark:bg-zinc-800/50 border border-[#E2E8F0] dark:border-zinc-800 text-xs gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <span className="w-5 h-5 rounded-full bg-[#A61B2B] text-white font-bold text-[10px] flex items-center justify-center shrink-0">
                 {currentStage}
               </span>
-              <span className="font-bold text-[#1E293B] dark:text-white">
-                Stage {currentStage} of 5:
+              <span className="font-bold text-[#1E293B] dark:text-white shrink-0 text-xs">
+                Stage {currentStage}/5:
               </span>
-              <span className="text-[#A61B2B] dark:text-rose-300 font-semibold">
+              <span className="text-[#A61B2B] dark:text-rose-300 font-semibold truncate text-xs">
                 {STAGES[currentStage - 1].title}
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               {STAGES.map((stg) => (
                 <button
                   key={stg.id}
@@ -476,10 +476,10 @@ export default function DonorRegisterPage() {
                   title={`Stage ${stg.id}: ${stg.title}`}
                   className={`h-2 rounded-full transition-all cursor-pointer ${
                     currentStage === stg.id
-                      ? "bg-[#A61B2B] w-7"
+                      ? "bg-[#A61B2B] w-5 sm:w-7"
                       : currentStage > stg.id
-                      ? "bg-[#28734A] w-3"
-                      : "bg-slate-200 dark:bg-zinc-700 w-3"
+                      ? "bg-[#28734A] w-2.5 sm:w-3"
+                      : "bg-slate-200 dark:bg-zinc-700 w-2.5 sm:w-3"
                   }`}
                 />
               ))}
@@ -716,12 +716,12 @@ export default function DonorRegisterPage() {
                 </div>
 
                 {/* Navigation Buttons */}
-                <div className="pt-4 flex items-center justify-between">
+                <div className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-[#E2E8F0] dark:border-zinc-800">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handlePrev}
-                    className="font-medium text-xs flex items-center gap-1.5"
+                    className="w-full sm:w-auto font-medium text-xs flex items-center justify-center gap-1.5"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Previous: Personal Info</span>
@@ -731,7 +731,7 @@ export default function DonorRegisterPage() {
                     type="button"
                     variant="primary"
                     onClick={handleNext}
-                    className="font-semibold text-xs flex items-center gap-1.5"
+                    className="w-full sm:w-auto font-semibold text-xs flex items-center justify-center gap-1.5"
                   >
                     <span>Next: Health Screening</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -899,12 +899,12 @@ export default function DonorRegisterPage() {
                 </div>
 
                 {/* Navigation Buttons */}
-                <div className="pt-4 flex items-center justify-between">
+                <div className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-[#E2E8F0] dark:border-zinc-800">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handlePrev}
-                    className="font-medium text-xs flex items-center gap-1.5"
+                    className="w-full sm:w-auto font-medium text-xs flex items-center justify-center gap-1.5"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Previous: Blood Group</span>
@@ -914,7 +914,7 @@ export default function DonorRegisterPage() {
                     type="button"
                     variant="primary"
                     onClick={handleNext}
-                    className="font-semibold text-xs flex items-center gap-1.5"
+                    className="w-full sm:w-auto font-semibold text-xs flex items-center justify-center gap-1.5"
                   >
                     <span>Next: Safety Policy</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -975,12 +975,12 @@ export default function DonorRegisterPage() {
                 </div>
 
                 {/* Navigation Buttons */}
-                <div className="pt-4 flex items-center justify-between">
+                <div className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-[#E2E8F0] dark:border-zinc-800">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handlePrev}
-                    className="font-medium text-xs flex items-center gap-1.5"
+                    className="w-full sm:w-auto font-medium text-xs flex items-center justify-center gap-1.5"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Previous: Health Questionnaire</span>
@@ -990,7 +990,7 @@ export default function DonorRegisterPage() {
                     type="button"
                     variant="primary"
                     onClick={handleNext}
-                    className="font-semibold text-xs flex items-center gap-1.5"
+                    className="w-full sm:w-auto font-semibold text-xs flex items-center justify-center gap-1.5"
                   >
                     <span>Next: Review & Submit</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -1083,12 +1083,12 @@ export default function DonorRegisterPage() {
                 </div>
 
                 {/* Final Navigation & Submit Buttons */}
-                <div className="pt-4 flex items-center justify-between gap-3">
+                <div className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-[#E2E8F0] dark:border-zinc-800">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handlePrev}
-                    className="font-medium text-xs flex items-center gap-1.5"
+                    className="w-full sm:w-auto font-medium text-xs flex items-center justify-center gap-1.5"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Previous: Safety Policy</span>
@@ -1097,7 +1097,7 @@ export default function DonorRegisterPage() {
                   <Button
                     type="submit"
                     variant="primary"
-                    className="font-semibold text-xs py-2.5 px-4 shadow-sm flex items-center gap-1.5"
+                    className="w-full sm:w-auto font-semibold text-xs py-2.5 px-4 shadow-sm flex items-center justify-center gap-1.5"
                     isLoading={isLoading}
                   >
                     <HeartHandshake className="w-3.5 h-3.5" />
