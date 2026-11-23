@@ -176,11 +176,11 @@ export default function RecipientRegisterPage() {
     : [];
 
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto py-6 sm:py-10 px-3 sm:px-6 lg:px-8">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
 
         {/* LEFT BRAND PANEL */}
-        <div className="lg:col-span-4 xl:col-span-3.5 bg-white dark:bg-zinc-900 text-[#1E293B] dark:text-zinc-100 p-5 sm:p-6 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 flex flex-col justify-between shadow-xs sticky top-20 space-y-6">
+        <div className="lg:col-span-4 xl:col-span-3.5 bg-white dark:bg-zinc-900 text-[#1E293B] dark:text-zinc-100 p-4 sm:p-6 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 flex flex-col justify-between shadow-xs static lg:sticky lg:top-20 space-y-6">
           <div className="space-y-5">
             <div className="space-y-2">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F0F7FF] dark:bg-blue-950/40 border border-[#BFDBFE] dark:border-blue-900/50 text-[#315B83] dark:text-blue-300 text-xs font-semibold tracking-wide uppercase">
@@ -237,8 +237,8 @@ export default function RecipientRegisterPage() {
         </div>
 
         {/* RIGHT FORM PANEL */}
-        <div className="lg:col-span-8 xl:col-span-8.5 bg-white dark:bg-zinc-900 p-6 sm:p-8 md:p-9 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#E2E8F0] dark:border-zinc-800">
+        <div className="lg:col-span-8 xl:col-span-8.5 bg-white dark:bg-zinc-900 p-4 sm:p-6 md:p-8 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 shadow-xs space-y-5 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-2 border-b border-[#E2E8F0] dark:border-zinc-800">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-[#1E293B] dark:text-white tracking-tight">
                 Create Recipient / Hospital Account
@@ -249,22 +249,22 @@ export default function RecipientRegisterPage() {
             </div>
 
             {/* Role Switcher Tabs */}
-            <div className="bg-[#F8FAFC] dark:bg-zinc-800/60 p-1 rounded-lg flex items-center gap-1 border border-[#E2E8F0] dark:border-zinc-700 shrink-0">
+            <div className="bg-[#F8FAFC] dark:bg-zinc-800/60 p-1 rounded-lg grid grid-cols-2 sm:flex sm:items-center gap-1 border border-[#E2E8F0] dark:border-zinc-700 shrink-0 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => navigate("/register/donor")}
-                className="py-1.5 px-3 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 text-[#475569] dark:text-zinc-300 hover:text-[#1E293B] dark:hover:text-white cursor-pointer"
+                className="py-1.5 px-2.5 sm:px-3 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 text-[#475569] dark:text-zinc-300 hover:text-[#1E293B] dark:hover:text-white cursor-pointer"
               >
-                <HeartHandshake className="w-3.5 h-3.5" />
-                Donor Registry
+                <HeartHandshake className="w-3.5 h-3.5 shrink-0" />
+                <span>Donor Registry</span>
               </button>
 
               <button
                 type="button"
-                className="py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 bg-[#315B83] text-white cursor-default shadow-xs"
+                className="py-1.5 px-2.5 sm:px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 bg-[#315B83] text-white cursor-default shadow-xs"
               >
-                <Search className="w-3.5 h-3.5" />
-                Recipient Portal
+                <Search className="w-3.5 h-3.5 shrink-0" />
+                <span>Recipient Portal</span>
               </button>
             </div>
           </div>

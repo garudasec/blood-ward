@@ -54,6 +54,17 @@ export const sendEmailOtp = async (req, res, next) => {
       ...(result.testOtp ? { testOtp: result.testOtp } : {}),
     });
   } catch (error) {
+    if (error.message?.includes('OTP_HMAC_SECRET') || error.message?.includes('CRITICAL SECURITY CONFIGURATION')) {
+      console.error('[Security Configuration Error]', error.message);
+      return next(
+        new AppError(
+          process.env.NODE_ENV === 'production'
+            ? 'Verification service is temporarily unavailable due to server configuration. Please try again later.'
+            : error.message,
+          500
+        )
+      );
+    }
     next(error);
   }
 };
