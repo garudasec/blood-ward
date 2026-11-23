@@ -313,6 +313,15 @@ export default function LoginPage() {
                   icon={Lock}
                   required
                 />
+
+                <div className="flex justify-end -mt-1">
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs font-medium text-[#315B83] hover:text-[#1E293B] hover:underline transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
 
               <Button

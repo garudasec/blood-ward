@@ -1,21 +1,33 @@
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
+import Hospital from "../models/hospital.model.js";
 import AppError from "../utils/appError.js";
 import { logAuditEvent } from "../utils/auditLogger.js";
+import { generateHospitalId } from "../utils/idGenerator.js";
 import { ALLOWED_GENDERS, isValidPincode, normalizeIndianPhone, validateDonorDOB } from "../utils/validators.js";
+import { sendPasswordResetEmail, isEmailConfigured } from "../utils/emailService.js";
+import Otp from "../models/otp.model.js";
+import {
+  generateAndSendOtp,
+  verifyOtp,
+  invalidateOtpsForTarget,
+  isRegistrationOtpVerified,
+  consumeRegistrationOtp,
+} from "../services/otpService.js";
 
-const signToken = (id, role) => {
+const signToken = (id, role, tokenVersion = 0) => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error("JWT_SECRET is missing from environment configuration");
   }
-  return jwt.sign({ id, role }, secret, {
+  return jwt.sign({ id, role, tokenVersion }, secret, {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   });
 };
 
 const sendTokenResponse = (user, statusCode, res, message = "Success") => {
-  const token = signToken(user._id, user.role);
+  const token = signToken(user._id, user.role, user.tokenVersion || 0);
 
   const cookieOptions = {
     httpOnly: true,
@@ -50,6 +62,11 @@ const sendTokenResponse = (user, statusCode, res, message = "Success") => {
     verificationStatus: user.verificationStatus || (user.accountType === "hospital_rep" ? "pending" : "verified"),
     verificationRejectionReason: user.verificationRejectionReason || "",
     verifiedAt: user.verifiedAt || null,
+    hospital: user.hospital || null,
+    isEmailVerified: user.isEmailVerified || false,
+    emailVerifiedAt: user.emailVerifiedAt || null,
+    isPhoneVerified: user.isPhoneVerified || false,
+    phoneVerifiedAt: user.phoneVerifiedAt || null,
   };
 
   res.status(statusCode).json({
@@ -123,6 +140,25 @@ export const registerDonor = async (req, res, next) => {
       availability: donorAvailability,
     };
 
+    // Check if email was verified via OTP in the last 30 minutes and not yet consumed
+    const emailVerified = await isRegistrationOtpVerified({
+      target: normalizedEmail,
+      targetType: "email",
+      purpose: "verification",
+    });
+
+    if (!emailVerified) {
+      return next(
+        new AppError(
+          "Email verification is mandatory. Please verify your email with the 6-digit verification code before registering.",
+          400
+        )
+      );
+    }
+
+    donorData.isEmailVerified = true;
+    donorData.emailVerifiedAt = new Date();
+
     if (healthQuestionnaire && typeof healthQuestionnaire === "object") {
       donorData.healthQuestionnaire = {
         currentWeight: healthQuestionnaire.currentWeight ? Number(healthQuestionnaire.currentWeight) : null,
@@ -138,6 +174,14 @@ export const registerDonor = async (req, res, next) => {
     }
 
     const newUser = await User.create(donorData);
+
+    // Atomically consume verified OTP records upon successful user creation
+    await consumeRegistrationOtp({
+      target: normalizedEmail,
+      targetType: "email",
+      purpose: "verification",
+      userId: newUser._id,
+    });
 
     logAuditEvent({
       actor: newUser._id,
@@ -206,6 +250,49 @@ export const registerRecipient = async (req, res, next) => {
 
     const recipientCity = (location || city || "").trim();
 
+    let linkedHospitalId = null;
+    if (isHospitalRep) {
+      const trimmedHospitalName = hospitalName.trim();
+      const escapedHospitalName = trimmedHospitalName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escapedCity = recipientCity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+      let existingHospital = await Hospital.findOne({
+        name: { $regex: new RegExp(`^${escapedHospitalName}$`, "i") },
+        city: { $regex: new RegExp(`^${escapedCity}$`, "i") },
+      });
+
+      if (!existingHospital) {
+        const hospitalId = await generateHospitalId();
+        existingHospital = await Hospital.create({
+          hospitalId,
+          name: trimmedHospitalName,
+          address: hospitalAddress ? hospitalAddress.trim() : "",
+          city: recipientCity,
+          state: state ? state.trim() : "",
+          contactPhone: hospitalContactPhone ? hospitalContactPhone.trim() : "",
+          verificationStatus: "pending",
+        });
+      }
+
+      linkedHospitalId = existingHospital._id;
+    }
+
+    // Check if email was verified via OTP in the last 30 minutes and not yet consumed
+    const emailVerified = await isRegistrationOtpVerified({
+      target: normalizedEmail,
+      targetType: "email",
+      purpose: "verification",
+    });
+
+    if (!emailVerified) {
+      return next(
+        new AppError(
+          "Email verification is mandatory. Please verify your email with the 6-digit verification code before registering.",
+          400
+        )
+      );
+    }
+
     const newUser = await User.create({
       fullName: fullName.trim(),
       email: normalizedEmail,
@@ -216,12 +303,25 @@ export const registerRecipient = async (req, res, next) => {
       state: state ? state.trim() : "",
       city: recipientCity,
       accountType: isHospitalRep ? "hospital_rep" : "individual",
+      hospital: linkedHospitalId,
       hospitalName: isHospitalRep ? hospitalName.trim() : "",
       hospitalAddress: isHospitalRep && hospitalAddress ? hospitalAddress.trim() : "",
       hospitalContactPhone: isHospitalRep && hospitalContactPhone ? hospitalContactPhone.trim() : "",
       representativeDesignation: isHospitalRep && representativeDesignation ? representativeDesignation.trim() : "",
       authorizationNotes: isHospitalRep && authorizationNotes ? authorizationNotes.trim() : "",
       verificationStatus: isHospitalRep ? "pending" : "verified",
+      isPhoneVerified: false,
+      phoneVerifiedAt: null,
+      isEmailVerified: true,
+      emailVerifiedAt: new Date(),
+    });
+
+    // Atomically consume verified OTP records upon successful user creation
+    await consumeRegistrationOtp({
+      target: normalizedEmail,
+      targetType: "email",
+      purpose: "verification",
+      userId: newUser._id,
     });
 
     logAuditEvent({
@@ -387,6 +487,22 @@ export const getMe = async (req, res, next) => {
           user: null,
         });
       }
+
+      if (decoded.tokenVersion !== undefined && currentUser.tokenVersion !== undefined) {
+        if (decoded.tokenVersion !== currentUser.tokenVersion) {
+          return res.status(200).json({
+            success: true,
+            authenticated: false,
+            user: null,
+          });
+        }
+      } else if (currentUser.changedPasswordAfter && currentUser.changedPasswordAfter(decoded.iat)) {
+        return res.status(200).json({
+          success: true,
+          authenticated: false,
+          user: null,
+        });
+      }
     }
 
     if (currentUser.isBlocked) {
@@ -417,6 +533,10 @@ export const getMe = async (req, res, next) => {
       verificationStatus: currentUser.verificationStatus || (currentUser.accountType === "hospital_rep" ? "pending" : "verified"),
       verificationRejectionReason: currentUser.verificationRejectionReason || "",
       verifiedAt: currentUser.verifiedAt || null,
+      isPhoneVerified: currentUser.isPhoneVerified || false,
+      phoneVerifiedAt: currentUser.phoneVerifiedAt || null,
+      isEmailVerified: currentUser.isEmailVerified || false,
+      emailVerifiedAt: currentUser.emailVerifiedAt || null,
     };
 
     res.status(200).json({
@@ -433,6 +553,7 @@ export const updateMe = async (req, res, next) => {
   try {
     const {
       fullName,
+      email,
       phone,
       gender,
       state,
@@ -453,12 +574,35 @@ export const updateMe = async (req, res, next) => {
       req.user.fullName = fullName.trim();
     }
 
+    if (email !== undefined) {
+      if (typeof email !== "string" || !email.trim()) {
+        return next(new AppError("Email must be a valid text string.", 400));
+      }
+      const normalizedEmail = email.toLowerCase().trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        return next(new AppError("Please provide a valid email address.", 400));
+      }
+      if (normalizedEmail !== req.user.email) {
+        const existing = await User.findOne({ email: normalizedEmail, _id: { $ne: req.user._id } });
+        if (existing) {
+          return next(new AppError("An account with this email address already exists.", 400));
+        }
+        req.user.email = normalizedEmail;
+        req.user.isEmailVerified = false;
+        req.user.emailVerifiedAt = null;
+      }
+    }
+
     if (phone !== undefined) {
       const normalizedPhone = normalizeIndianPhone(phone);
       if (!normalizedPhone) {
         return next(new AppError("Please provide a valid 10-digit Indian mobile number.", 400));
       }
-      req.user.phone = normalizedPhone;
+      if (normalizedPhone !== req.user.phone) {
+        req.user.phone = normalizedPhone;
+        req.user.isPhoneVerified = false;
+        req.user.phoneVerifiedAt = null;
+      }
     }
 
     if (gender !== undefined) {
@@ -517,12 +661,293 @@ export const updateMe = async (req, res, next) => {
       pincode: req.user.pincode || "",
       availability: req.user.availability || "not_available",
       isBlocked: req.user.isBlocked || false,
+      isPhoneVerified: req.user.isPhoneVerified || false,
+      phoneVerifiedAt: req.user.phoneVerifiedAt || null,
+      isEmailVerified: req.user.isEmailVerified || false,
+      emailVerifiedAt: req.user.emailVerifiedAt || null,
     };
 
     res.status(200).json({
       success: true,
       message: "Profile updated successfully.",
       user: safeUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Request password reset link
+ * @route   POST /api/auth/forgot-password
+ * @access  Public
+ */
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return next(new AppError("Please provide a valid email address.", 400));
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    // Timing-safe response: Always return identical generic success message even if email not found
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: "If an account matches that email, instructions to reset your password have been sent.",
+      });
+    }
+
+    // Generate random 32-byte token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    // Store SHA-256 hash in database
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    // Token expires in 15 minutes
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
+    await user.save({ validateBeforeSave: false });
+
+    // Fully qualified reset URL sent strictly via email transport
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
+
+    logAuditEvent({
+      actor: user._id,
+      actorName: user.fullName,
+      action: "PASSWORD_RESET_REQUESTED",
+      category: "AUTH",
+      target: user._id.toString(),
+      ipAddress: req.ip,
+      severity: "NORMAL",
+      details: `Password reset requested for ${user.email}.`,
+    });
+
+    // Attempt outbound email delivery if configured
+    try {
+      await sendPasswordResetEmail({
+        to: user.email,
+        userName: user.fullName,
+        resetUrl,
+      });
+    } catch (mailError) {
+      // Invalidate the generated token if delivery threw an unhandled network error
+      user.passwordResetToken = null;
+      user.passwordResetExpires = null;
+      await user.save({ validateBeforeSave: false });
+      return next(new AppError("There was an error sending the password reset email. Please try again later.", 500));
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "If an account matches that email, instructions to reset your password have been sent.",
+      ...(process.env.NODE_ENV === "test" ? { testResetToken: resetToken } : {}),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Reset password using reset token
+ * @route   POST /api/auth/reset-password/:token
+ * @access  Public
+ */
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password, confirmPassword } = req.body;
+
+    if (!token) {
+      return next(new AppError("Password reset token is missing.", 400));
+    }
+
+    if (!password || typeof password !== "string" || password.length < 8) {
+      return next(new AppError("Password must be at least 8 characters long.", 400));
+    }
+
+    if (confirmPassword !== undefined && password !== confirmPassword) {
+      return next(new AppError("Password and confirmation do not match.", 400));
+    }
+
+    // Hash the token from parameter to find matching user
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    }).select("+password");
+
+    if (!user) {
+      return next(new AppError("Password reset token is invalid or has expired.", 400));
+    }
+
+    // Set new password and invalidate prior sessions
+    user.password = password;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    user.passwordChangedAt = new Date();
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    logAuditEvent({
+      actor: user._id,
+      actorName: user.fullName,
+      action: "PASSWORD_RESET_SUCCESS",
+      category: "AUTH",
+      target: user._id.toString(),
+      ipAddress: req.ip,
+      severity: "NORMAL",
+      details: `Password successfully reset for ${user.email}.`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Password has been reset successfully. You may now log in with your new password.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Request password reset via 6-digit Email OTP
+ * @route   POST /api/auth/forgot-password-otp
+ * @access  Public
+ */
+export const forgotPasswordOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return next(new AppError("Please provide a valid email address.", 400));
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    // Timing-safe response: Always return identical generic success message even if email not found
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: "If an account matches that email, a verification code has been sent.",
+      });
+    }
+
+    const result = await generateAndSendOtp({
+      target: user.email,
+      targetType: "email",
+      purpose: "password_reset",
+      userName: user.fullName,
+    });
+
+    if (!result.success) {
+      if (result.inCooldown) {
+        return res.status(429).json({
+          success: false,
+          inCooldown: true,
+          remainingSeconds: result.remainingSeconds,
+          message: result.error,
+        });
+      }
+      return next(new AppError(result.error || "Failed to dispatch password recovery code.", 400));
+    }
+
+    logAuditEvent({
+      actor: user._id,
+      actorName: user.fullName,
+      action: "PASSWORD_RESET_OTP_REQUESTED",
+      category: "AUTH",
+      target: user._id.toString(),
+      ipAddress: req.ip,
+      severity: "NORMAL",
+      details: `Password reset OTP requested for ${user.email}.`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "If an account matches that email, a verification code has been sent.",
+      resendAvailableAt: result.resendAvailableAt,
+      expiresAt: result.expiresAt,
+      ...(process.env.NODE_ENV === "test" ? { testOtp: result.testOtp } : {}),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Reset password using 6-digit Email OTP
+ * @route   POST /api/auth/reset-password-otp
+ * @access  Public
+ */
+export const resetPasswordOtp = async (req, res, next) => {
+  try {
+    const { email, otp, password, confirmPassword } = req.body;
+
+    if (!email || typeof email !== "string") {
+      return next(new AppError("Email address is required.", 400));
+    }
+    if (!otp || typeof otp !== "string" || !/^\d{6}$/.test(otp.trim())) {
+      return next(new AppError("Please provide a valid 6-digit numeric verification code.", 400));
+    }
+    if (!password || typeof password !== "string" || password.length < 8) {
+      return next(new AppError("Password must be at least 8 characters long.", 400));
+    }
+    if (confirmPassword !== undefined && password !== confirmPassword) {
+      return next(new AppError("Password and confirmation do not match.", 400));
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Verify candidate OTP
+    const verifyResult = await verifyOtp({
+      target: normalizedEmail,
+      targetType: "email",
+      purpose: "password_reset",
+      otp: otp.trim(),
+    });
+
+    if (!verifyResult.success) {
+      return res.status(400).json({
+        success: false,
+        errorCode: verifyResult.errorCode,
+        message: verifyResult.error,
+        attemptsRemaining: verifyResult.attemptsRemaining,
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select("+password");
+    if (!user) {
+      return next(new AppError("Account not found.", 404));
+    }
+
+    // Set new password, increment tokenVersion (invalidating existing JWT sessions), and clear tokens
+    user.password = password;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    user.passwordChangedAt = new Date();
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    // Invalidate all remaining recovery OTPs for this user
+    await invalidateOtpsForTarget({ target: normalizedEmail, purpose: "password_reset" });
+
+    logAuditEvent({
+      actor: user._id,
+      actorName: user.fullName,
+      action: "PASSWORD_RESET_SUCCESS",
+      category: "AUTH",
+      target: user._id.toString(),
+      ipAddress: req.ip,
+      severity: "NORMAL",
+      details: `Password successfully reset via OTP for ${user.email}.`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Password has been reset successfully. You may now log in with your new password.",
     });
   } catch (error) {
     next(error);

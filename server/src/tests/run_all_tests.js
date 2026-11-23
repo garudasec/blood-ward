@@ -30,6 +30,13 @@ const testSuites = [
   { name: "Phase 1 Verification", file: "run_phase1_verification_tests.js" },
   { name: "Phase 2 Verification", file: "run_phase2_verification_tests.js" },
   { name: "Phase 3 Verification", file: "run_phase3_verification_tests.js" },
+  { name: "Hospital, Patient & Complaint", file: "run_hospital_patient_complaint_tests.js" },
+  { name: "Notification Phase 1 Suite", file: "run_notification_phase1_tests.js" },
+  { name: "Admin Notification Rate Limit Suite", file: "run_admin_notification_rate_limit_tests.js" },
+  { name: "Public Complaints Suite", file: "run_public_complaints_tests.js" },
+  { name: "SMS Removal & Email OTP Suite", file: "run_sms_removal_and_email_otp_tests.js" },
+  { name: "Email OTP Enforcement Suite", file: "run_email_otp_enforcement_tests.js" },
+  { name: "Match & 45-Day Cleanup Suite", file: "run_match_and_cleanup_tests.js" },
 ];
 
 async function runSingleSuite(suite) {

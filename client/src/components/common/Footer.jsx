@@ -42,6 +42,11 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link to="/complaints" className="hover:text-[#A61B2B] dark:hover:text-rose-400 transition-colors font-medium">
+                  Public Misconduct Complaints
+                </Link>
+              </li>
+              <li>
                 <Link to="/login" className="hover:text-[#1E293B] dark:hover:text-white transition-colors">
                   Sign In to Workspace
                 </Link>

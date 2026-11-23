@@ -13,6 +13,9 @@ import {
   Radar,
   Clock,
   XCircle,
+  User as UserIcon,
+  Copy,
+  Check,
 } from "lucide-react";
 import Input from "../../components/common/Input";
 import Select from "../../components/common/Select";
@@ -66,6 +69,12 @@ export default function CreateBloodRequestPage() {
     radiusKm: initialRadius,
     urgency: initialUrgency,
     additionalNotes: "",
+    patientName: "",
+    patientContactPhone: "",
+    patientAge: "",
+    patientGender: "",
+    hospitalRegistrationNumber: "",
+    wardDepartment: "",
   });
 
   const [isManualRadiusOverride, setIsManualRadiusOverride] = useState(false);
@@ -73,6 +82,8 @@ export default function CreateBloodRequestPage() {
   const [serverError, setServerError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReview, setShowReview] = useState(false);
+  const [claimCodeModal, setClaimCodeModal] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   const suggestedRadius = getSuggestedRadius(formData.requiredDate);
 
@@ -115,6 +126,10 @@ export default function CreateBloodRequestPage() {
     if (!formData.requiredDate) newErrors.requiredDate = "Required date is required";
     if (!RADIUS_PRESETS.includes(Number(formData.radiusKm))) newErrors.radiusKm = "Valid radius preset is required";
 
+    if (isHospitalRep && !formData.patientName.trim()) {
+      newErrors.patientName = "Patient Name is required for hospital requisitions";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -130,7 +145,7 @@ export default function CreateBloodRequestPage() {
     setIsSubmitting(true);
     setServerError("");
     try {
-      await requestService.create({
+      const response = await requestService.create({
         bloodGroup: formData.bloodGroup,
         unitsNeeded: Number(formData.unitsNeeded),
         hospitalName: formData.hospitalName.trim(),
@@ -139,8 +154,24 @@ export default function CreateBloodRequestPage() {
         radiusKm: Number(formData.radiusKm),
         urgency: formData.urgency,
         additionalNotes: formData.additionalNotes.trim(),
+        patientName: formData.patientName.trim(),
+        patientContactPhone: formData.patientContactPhone.trim(),
+        patientAge: formData.patientAge ? Number(formData.patientAge) : undefined,
+        patientGender: formData.patientGender,
+        hospitalRegistrationNumber: formData.hospitalRegistrationNumber.trim(),
+        wardDepartment: formData.wardDepartment.trim(),
       });
-      navigate("/recipient/requests");
+
+      if (response.claimCode) {
+        setShowReview(false);
+        setClaimCodeModal({
+          claimCode: response.claimCode,
+          patientId: response.patientId,
+          patientName: formData.patientName || "Patient",
+        });
+      } else {
+        navigate("/recipient/requests");
+      }
     } catch (err) {
       console.error("Failed to create blood request:", err);
       setServerError(err.message || "Failed to create blood request.");
@@ -277,6 +308,81 @@ export default function CreateBloodRequestPage() {
               required
             />
           </div>
+
+          {/* HOSPITAL PATIENT REQUISITION SECTION */}
+          {isHospitalRep && (
+            <div className="p-4 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-900 dark:text-blue-300">
+                <UserIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                Patient Requisition Details
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Patient Full Name"
+                  id="patientName"
+                  placeholder="e.g. Sunil Verma"
+                  value={formData.patientName}
+                  onChange={handleChange}
+                  error={errors.patientName}
+                  required
+                />
+
+                <Input
+                  label="Patient / Attendant Contact Number"
+                  id="patientContactPhone"
+                  placeholder="10-digit mobile number"
+                  value={formData.patientContactPhone}
+                  onChange={handleChange}
+                  error={errors.patientContactPhone}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Hospital Registration / Admission No."
+                  id="hospitalRegistrationNumber"
+                  placeholder="e.g. IPD-89421 / MRD-10492"
+                  value={formData.hospitalRegistrationNumber}
+                  onChange={handleChange}
+                />
+
+                <Input
+                  label="Ward / Bed / Department"
+                  id="wardDepartment"
+                  placeholder="e.g. Cardiology ICU Bed 8"
+                  value={formData.wardDepartment}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Patient Age"
+                  id="patientAge"
+                  type="number"
+                  min="0"
+                  max="120"
+                  placeholder="e.g. 52"
+                  value={formData.patientAge}
+                  onChange={handleChange}
+                />
+
+                <Select
+                  label="Patient Gender"
+                  id="patientGender"
+                  options={[
+                    { label: "Select Gender", value: "" },
+                    { label: "Male", value: "Male" },
+                    { label: "Female", value: "Female" },
+                    { label: "Other", value: "Other" },
+                  ]}
+                  value={formData.patientGender}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
@@ -461,6 +567,63 @@ export default function CreateBloodRequestPage() {
                 <BellRing className="w-3.5 h-3.5 mr-1.5" /> Confirm & Publish Request
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PATIENT CLAIM CODE MODAL FOR HOSPITAL COORDINATOR */}
+      {claimCodeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-xs">
+          <div className="bg-white dark:bg-zinc-900 max-w-md w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl p-6 sm:p-7 space-y-5 text-center">
+            <div className="w-12 h-12 bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 rounded-xl flex items-center justify-center mx-auto">
+              <Check className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                Blood Request Published!
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                A unique single-use patient claim code has been generated for {claimCodeModal.patientName}.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                Patient Claim Code
+              </span>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-2xl font-mono font-extrabold text-[#A61B2B] tracking-wider select-all">
+                  {claimCodeModal.claimCode}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(claimCodeModal.claimCode);
+                    setCopiedCode(true);
+                    setTimeout(() => setCopiedCode(false), 2000);
+                  }}
+                  className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                  title="Copy Code"
+                >
+                  {copiedCode ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
+                Provide this secure code to the patient or authorized family member so they can link this requisition to their BloodWard dashboard.
+              </p>
+            </div>
+
+            <Button
+              variant="primary"
+              className="w-full text-xs font-semibold py-2.5"
+              onClick={() => {
+                setClaimCodeModal(null);
+                navigate("/recipient/requests");
+              }}
+            >
+              Go to Requests Dashboard →
+            </Button>
           </div>
         </div>
       )}

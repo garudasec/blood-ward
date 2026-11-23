@@ -1,7 +1,5 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { USER_ROLES } from '../constants/theme';
 import PublicLayout from '../layouts/PublicLayout';
 import DonorLayout from '../layouts/DonorLayout';
 import RecipientLayout from '../layouts/RecipientLayout';
@@ -9,8 +7,12 @@ import AdminLayout from '../layouts/AdminLayout';
 
 import LandingPage from '../pages/common/LandingPage';
 import LoginPage from '../pages/auth/LoginPage';
+import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from '../pages/auth/ResetPasswordPage';
+import RegisterRoleSelectPage from '../pages/auth/RegisterRoleSelectPage';
 import DonorRegisterPage from '../pages/auth/DonorRegisterPage';
 import RecipientRegisterPage from '../pages/auth/RecipientRegisterPage';
+import PublicComplaintPage from '../pages/public/PublicComplaintPage';
 
 import DonorDashboardPage from '../pages/donor/DonorDashboardPage';
 import DonorProfilePage from '../pages/donor/DonorProfilePage';
@@ -28,10 +30,13 @@ import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
 import AdminDonorsPage from '../pages/admin/AdminDonorsPage';
 import AdminRecipientsPage from '../pages/admin/AdminRecipientsPage';
 import AdminRequestsPage from '../pages/admin/AdminRequestsPage';
+import AdminComplaintsPage from '../pages/admin/AdminComplaintsPage';
+import AdminNotificationsPage from '../pages/admin/AdminNotificationsPage';
 import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
 
 import ProtectedRoute from './ProtectedRoute';
 import RoleRoute from './RoleRoute';
+import { USER_ROLES } from '../constants/theme';
 
 
 export default function AppRoutes() {
@@ -43,8 +48,13 @@ export default function AppRoutes() {
           <Route index element={<LandingPage />} />
           <Route path="about" element={<LandingPage />} />
           <Route path="login" element={<LoginPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="reset-password/:token" element={<ResetPasswordPage />} />
+          <Route path="register" element={<RegisterRoleSelectPage />} />
+          <Route path="get-started" element={<Navigate to="/register" replace />} />
           <Route path="register/donor" element={<DonorRegisterPage />} />
           <Route path="register/recipient" element={<RecipientRegisterPage />} />
+          <Route path="complaints" element={<PublicComplaintPage />} />
         </Route>
 
         {/* Protected Donor Routes */}
@@ -98,6 +108,8 @@ export default function AppRoutes() {
           <Route path="donors" element={<AdminDonorsPage />} />
           <Route path="recipients" element={<AdminRecipientsPage />} />
           <Route path="requests" element={<AdminRequestsPage />} />
+          <Route path="complaints" element={<AdminComplaintsPage />} />
+          <Route path="notifications" element={<AdminNotificationsPage />} />
           <Route path="audit-logs" element={<AdminAuditLogsPage />} />
         </Route>
 

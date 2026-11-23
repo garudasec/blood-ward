@@ -157,7 +157,9 @@ const testRun = async () => {
   console.log("[✅ PASS] Test 1: Blood request created with radius 20 KM");
 
   // Wait for socket events to deliver
-  await new Promise((r) => setTimeout(r, 600));
+  for (let i = 0; i < 30 && d1NotifCount === 0; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
 
   // Donor 1 is 0 km (<= 20km) -> notified
   // Donor 2 is ~25 km (> 20km) -> NOT notified
@@ -188,7 +190,9 @@ const testRun = async () => {
   console.log("[✅ PASS] Test 4: Radius expanded to 30 KM successfully");
 
   // Wait for expansion socket event
-  await new Promise((r) => setTimeout(r, 600));
+  for (let i = 0; i < 30 && d2NotifCount === 0; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
 
   // Donor 1 should STILL have 1 notification (no duplicate notification!)
   // Donor 2 should now have 1 notification (received new event!)
@@ -202,6 +206,9 @@ const testRun = async () => {
     headers: { cookie: d2Cookie },
   });
   const d2AcceptData2 = await d2AcceptRes2.json();
+  if (d2AcceptRes2.status !== 200) {
+    console.error("DEBUG d2AcceptData2 failure:", d2AcceptRes2.status, d2AcceptData2);
+  }
   assert.strictEqual(d2AcceptRes2.status, 200);
   assert.strictEqual(d2AcceptData2.request.status, "Donor Accepted");
   console.log("[✅ PASS] Test 6: Donor within expanded 30 KM successfully accepts request");

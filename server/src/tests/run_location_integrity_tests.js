@@ -1,4 +1,4 @@
-import './testDb.js';
+import { seedVerifiedEmailOtp } from './testDb.js';
 import dotenv from 'dotenv';
 dotenv.config();
 import assert from 'assert';
@@ -45,6 +45,7 @@ export async function runLocationIntegrityTests() {
       }
     };
 
+    await seedVerifiedEmailOtp('donor_fake_coords@location_integrity_test.com');
     await registerDonor(reqA, mockRes, mockNext);
     assert.strictEqual(statusCode, 201, 'Test A failed');
     const createdDonor = await User.findOne({ email: 'donor_fake_coords@location_integrity_test.com' });

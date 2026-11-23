@@ -27,6 +27,7 @@ import Select from "../../components/common/Select";
 import Button from "../../components/common/Button";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
+import EmailVerificationSection from "../../components/auth/EmailVerificationSection";
 import { BLOOD_GROUPS, GENDER_OPTIONS } from "../../constants/theme";
 import { INDIA_STATES_AND_CITIES, INDIAN_STATES_LIST } from "../../constants/indiaLocations";
 
@@ -83,9 +84,18 @@ export default function DonorRegisterPage() {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [serverNotice, setServerNotice] = useState("");
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState("");
 
   const handleChange = (e) => {
     const { id, value, type, checked } = e.target;
+
+    if (id === "email") {
+      if (isEmailVerified || verifiedEmail) {
+        setIsEmailVerified(false);
+        setVerifiedEmail("");
+      }
+    }
 
     if (id === "phone") {
       const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
@@ -115,10 +125,13 @@ export default function DonorRegisterPage() {
 
     if (stage === 1) {
       if (!formData.fullName.trim()) newErrors.fullName = "Full name is required";
-      if (!formData.email.trim()) {
+      const cleanEmail = formData.email.trim().toLowerCase();
+      if (!cleanEmail) {
         newErrors.email = "Email address is required";
-      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      } else if (!/\S+@\S+\.\S+/.test(cleanEmail)) {
         newErrors.email = "Enter a valid email address";
+      } else if (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase()) {
+        newErrors.email = "Email verification is mandatory. Please verify your email with the 6-digit verification code before proceeding.";
       }
 
       if (!formData.password) {
@@ -194,6 +207,15 @@ export default function DonorRegisterPage() {
 
   const handleNext = (e) => {
     if (e) e.preventDefault();
+    const cleanEmail = formData.email.trim().toLowerCase();
+    if (currentStage === 1 && (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase())) {
+      setErrors((prev) => ({
+        ...prev,
+        email: "Email verification is mandatory. Please verify your email before proceeding to the next step.",
+      }));
+      setServerNotice("Email verification is mandatory. Please verify your email with the 6-digit OTP code before proceeding to the next step.");
+      return;
+    }
     if (validateStage(currentStage)) {
       setServerNotice("");
       setCurrentStage((prev) => Math.min(prev + 1, 5));
@@ -217,6 +239,14 @@ export default function DonorRegisterPage() {
     } else if (targetStage === currentStage) {
       // already on current stage
     } else {
+      // Email verification is mandatory before proceeding beyond stage 1
+      const cleanEmail = formData.email.trim().toLowerCase();
+      if (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase()) {
+        setServerNotice("Email verification is mandatory. Please verify your email before proceeding to subsequent registration steps.");
+        setCurrentStage(1);
+        return;
+      }
+
       // verify preceding stages before allowing forward jump
       let canAdvance = true;
       for (let s = 1; s < targetStage; s++) {
@@ -236,6 +266,13 @@ export default function DonorRegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const cleanEmail = formData.email.trim().toLowerCase();
+    if (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase()) {
+      setServerNotice("Email verification is mandatory. Please verify your email before submitting registration.");
+      setCurrentStage(1);
+      return;
+    }
+
     if (!validateForm()) {
       setServerNotice("Please resolve the highlighted validation errors before submitting.");
       // Navigate to the first stage with errors
@@ -294,27 +331,30 @@ export default function DonorRegisterPage() {
     : [];
 
   return (
-    <div className="max-w-6xl mx-auto py-8 sm:py-12 px-4 sm:px-6">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <div className="max-w-7xl mx-auto py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
 
         {/* LEFT BRAND PANEL & STAGE PROGRESS SIDEBAR */}
-        <div className="lg:col-span-4 bg-white dark:bg-zinc-900 text-[#1E293B] dark:text-zinc-100 p-6 sm:p-8 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 flex flex-col justify-between shadow-xs sticky top-20">
-          <div className="space-y-6">
-            <div className="space-y-2.5">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#FEF2F2] dark:bg-rose-950/40 border border-[#FECACA] dark:border-rose-900/50 text-[#A61B2B] dark:text-rose-300 text-xs font-semibold">
+        <div className="lg:col-span-4 xl:col-span-3.5 bg-white dark:bg-zinc-900 text-[#1E293B] dark:text-zinc-100 p-5 sm:p-6 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 flex flex-col justify-between shadow-xs sticky top-20 space-y-6">
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#FEF2F2] dark:bg-rose-950/40 border border-[#FECACA] dark:border-rose-900/50 text-[#A61B2B] dark:text-rose-300 text-xs font-semibold">
                 <Droplet className="w-3.5 h-3.5 fill-current" />
                 <span>Voluntary Donor Registry</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1E293B] dark:text-white">
-                Join the Proximity Dispatch Network
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[#1E293B] dark:text-white">
+                Proximity Dispatch Network
               </h1>
-              <p className="text-xs sm:text-sm text-[#475569] dark:text-zinc-400 leading-relaxed">
-                Register as a voluntary blood donor. Receive proximity push alerts when local hospital patients in your city need your blood group.
+              <p className="text-xs text-[#475569] dark:text-zinc-400 leading-relaxed">
+                Register as a voluntary donor. Receive real-time proximity alerts when local hospitals need your compatible blood group.
               </p>
             </div>
 
             {/* Registration Progress Guide */}
-            <div className="space-y-2.5 pt-4 border-t border-[#E2E8F0] dark:border-zinc-800 text-xs">
+            <div className="space-y-1.5 pt-4 border-t border-[#E2E8F0] dark:border-zinc-800 text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B] dark:text-zinc-400 block mb-1">
+                Registration Journey
+              </span>
               {STAGES.map((stg) => {
                 const isActive = currentStage === stg.id;
                 const isCompleted = currentStage > stg.id;
@@ -323,7 +363,7 @@ export default function DonorRegisterPage() {
                     key={stg.id}
                     type="button"
                     onClick={() => handleStageClick(stg.id)}
-                    className={`w-full flex items-start gap-3 p-2 rounded-xl text-left transition-all cursor-pointer ${
+                    className={`w-full flex items-start gap-2.5 p-2 rounded-xl text-left transition-all cursor-pointer ${
                       isActive
                         ? "bg-[#FEF2F2] dark:bg-rose-950/40 border border-[#FECACA] dark:border-rose-900/50"
                         : "hover:bg-slate-50 dark:hover:bg-zinc-800/40"
@@ -362,18 +402,18 @@ export default function DonorRegisterPage() {
             </div>
 
             {/* Privacy Shield Notice */}
-            <div className="p-3.5 rounded-xl bg-[#F0FDF4] dark:bg-emerald-950/30 border border-[#BBF7D0] dark:border-emerald-800/50 space-y-1.5">
+            <div className="p-3 rounded-xl bg-[#F0FDF4] dark:bg-emerald-950/30 border border-[#BBF7D0] dark:border-emerald-800/50 space-y-1">
               <div className="flex items-center gap-1.5 text-[#166534] dark:text-emerald-300 font-semibold text-xs">
                 <ShieldCheck className="w-4 h-4 text-[#28734A] dark:text-emerald-400 shrink-0" />
                 <span>Protected Identity</span>
               </div>
               <p className="text-[11px] text-[#28734A] dark:text-emerald-300 leading-relaxed">
-                Your phone number is shielded until you explicitly accept a blood request. Home coordinates are coarsened by ~500m on discovery maps.
+                Contact details stay private until you accept a request. Residential coordinates are coarsened by ~500m on discovery maps.
               </p>
             </div>
           </div>
 
-          <div className="pt-6 mt-6 border-t border-[#E2E8F0] dark:border-zinc-800 text-[11px] text-[#64748B] dark:text-zinc-400 flex items-center justify-between">
+          <div className="pt-4 border-t border-[#E2E8F0] dark:border-zinc-800 text-[11px] text-[#64748B] dark:text-zinc-400 flex items-center justify-between">
             <span>Healthcare Standard</span>
             <span className="text-[#28734A] font-semibold flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#28734A] animate-pulse" /> Verified Registry
@@ -382,89 +422,67 @@ export default function DonorRegisterPage() {
         </div>
 
         {/* RIGHT FORM PANEL */}
-        <div className="lg:col-span-8 bg-white dark:bg-zinc-900 p-6 sm:p-10 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 shadow-xs space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold text-[#1E293B] dark:text-white tracking-tight">
-              Create Voluntary Donor Account
-            </h2>
-            <p className="text-xs sm:text-sm text-[#475569] dark:text-zinc-400 mt-1">
-              Complete the 5-stage sequential registration journey below with full medical privacy.
-            </p>
+        <div className="lg:col-span-8 xl:col-span-8.5 bg-white dark:bg-zinc-900 p-6 sm:p-8 md:p-9 rounded-2xl border border-[#E2E8F0] dark:border-zinc-800 shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#E2E8F0] dark:border-zinc-800">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-[#1E293B] dark:text-white tracking-tight">
+                Create Voluntary Donor Account
+              </h2>
+              <p className="text-xs text-[#475569] dark:text-zinc-400 mt-0.5">
+                Complete your verified registration journey with full medical confidentiality.
+              </p>
+            </div>
+
+            {/* Role Switcher Tabs */}
+            <div className="bg-[#F8FAFC] dark:bg-zinc-800/60 p-1 rounded-lg flex items-center gap-1 border border-[#E2E8F0] dark:border-zinc-700 shrink-0">
+              <button
+                type="button"
+                className="py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 bg-[#A61B2B] text-white cursor-default shadow-xs"
+              >
+                <HeartHandshake className="w-3.5 h-3.5" />
+                Donor
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/register/recipient")}
+                className="py-1.5 px-3 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 text-[#475569] dark:text-zinc-300 hover:text-[#1E293B] dark:hover:text-white cursor-pointer"
+              >
+                <Search className="w-3.5 h-3.5" />
+                Recipient Portal
+              </button>
+            </div>
           </div>
 
-          {/* Role Switcher Tabs */}
-          <div className="bg-[#F8FAFC] dark:bg-zinc-800/60 p-1 rounded-lg flex items-center gap-1 border border-[#E2E8F0] dark:border-zinc-700">
-            <button
-              type="button"
-              className="flex-1 py-2 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 bg-[#A61B2B] text-white cursor-default shadow-xs"
-            >
-              <HeartHandshake className="w-3.5 h-3.5" />
-              Donor Registration
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate("/register/recipient")}
-              className="flex-1 py-2 px-3 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 text-[#475569] dark:text-zinc-300 hover:text-[#1E293B] dark:hover:text-white cursor-pointer"
-            >
-              <Search className="w-3.5 h-3.5" />
-              Recipient Portal
-            </button>
-          </div>
-
-          {/* RESPONSIVE STEPPER BAR */}
-          {/* Desktop Stepper */}
-          <div className="hidden sm:grid grid-cols-5 gap-2 pt-1 pb-2">
-            {STAGES.map((stg) => {
-              const isActive = currentStage === stg.id;
-              const isCompleted = currentStage > stg.id;
-              return (
+          {/* Compact Step Progress Bar */}
+          <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-[#F8FAFC] dark:bg-zinc-800/50 border border-[#E2E8F0] dark:border-zinc-800 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-[#A61B2B] text-white font-bold text-[10px] flex items-center justify-center">
+                {currentStage}
+              </span>
+              <span className="font-bold text-[#1E293B] dark:text-white">
+                Stage {currentStage} of 5:
+              </span>
+              <span className="text-[#A61B2B] dark:text-rose-300 font-semibold">
+                {STAGES[currentStage - 1].title}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {STAGES.map((stg) => (
                 <button
                   key={stg.id}
                   type="button"
                   onClick={() => handleStageClick(stg.id)}
-                  className={`p-2 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center gap-1 ${
-                    isActive
-                      ? "bg-[#FEF2F2] dark:bg-rose-950/40 border-[#A61B2B] text-[#A61B2B] dark:text-rose-300 ring-1 ring-[#A61B2B]"
-                      : isCompleted
-                      ? "bg-[#F0FDF4] dark:bg-emerald-950/30 border-[#BBF7D0] dark:border-emerald-900/50 text-[#166534] dark:text-emerald-300"
-                      : "bg-[#F8FAFC] dark:bg-zinc-800/40 border-[#E2E8F0] dark:border-zinc-800 text-[#64748B] dark:text-zinc-400"
+                  title={`Stage ${stg.id}: ${stg.title}`}
+                  className={`h-2 rounded-full transition-all cursor-pointer ${
+                    currentStage === stg.id
+                      ? "bg-[#A61B2B] w-7"
+                      : currentStage > stg.id
+                      ? "bg-[#28734A] w-3"
+                      : "bg-slate-200 dark:bg-zinc-700 w-3"
                   }`}
-                >
-                  <span
-                    className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
-                      isCompleted
-                        ? "bg-[#28734A] text-white"
-                        : isActive
-                        ? "bg-[#A61B2B] text-white"
-                        : "bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300"
-                    }`}
-                  >
-                    {isCompleted ? <Check className="w-3 h-3 text-white" /> : stg.id}
-                  </span>
-                  <span className="text-[11px] font-semibold truncate w-full">
-                    {stg.title}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Mobile Stepper Bar */}
-          <div className="sm:hidden space-y-2 p-3 rounded-xl bg-[#F8FAFC] dark:bg-zinc-800/50 border border-[#E2E8F0] dark:border-zinc-800">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-[#A61B2B] dark:text-rose-300">
-                Stage {currentStage} of 5:
-              </span>
-              <span className="text-[#1E293B] dark:text-white font-semibold">
-                {STAGES[currentStage - 1].title}
-              </span>
-            </div>
-            <div className="w-full bg-slate-200 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden">
-              <div
-                className="bg-[#A61B2B] h-full transition-all duration-300 rounded-full"
-                style={{ width: `${(currentStage / 5) * 100}%` }}
-              />
+                />
+              ))}
             </div>
           </div>
 
@@ -494,32 +512,50 @@ export default function DonorRegisterPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input
-                    label="Full Name"
-                    id="fullName"
-                    placeholder="e.g. Rahul Verma"
-                    value={formData.fullName}
-                    onChange={handleChange}
-                    error={errors.fullName}
-                    icon={User}
-                    required
-                  />
+                {/* ROW 1: TWO EQUAL COLUMNS (Full Name | Email Address) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 items-start">
+                  <div>
+                    <Input
+                      label="Full Name"
+                      id="fullName"
+                      placeholder="e.g. Rahul Verma"
+                      value={formData.fullName}
+                      onChange={handleChange}
+                      error={errors.fullName}
+                      icon={User}
+                      required
+                    />
+                    <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-[#64748B] dark:text-zinc-400">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span>Legal identity as per government ID</span>
+                    </div>
+                  </div>
 
-                  <Input
-                    label="Email Address"
-                    id="email"
-                    type="email"
-                    placeholder="e.g. rahul.verma@example.in"
-                    value={formData.email}
-                    onChange={handleChange}
-                    error={errors.email}
-                    icon={Mail}
-                    required
-                  />
+                  <div>
+                    <Input
+                      label="Email Address"
+                      id="email"
+                      type="email"
+                      placeholder="e.g. rahul.verma@example.in"
+                      value={formData.email}
+                      onChange={handleChange}
+                      error={errors.email}
+                      icon={Mail}
+                      required
+                    />
+                    <EmailVerificationSection
+                      email={formData.email}
+                      isVerified={isEmailVerified}
+                      setIsVerified={setIsEmailVerified}
+                      verifiedEmail={verifiedEmail}
+                      setVerifiedEmail={setVerifiedEmail}
+                      accentColor="blood"
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* ROW 2: TWO EQUAL COLUMNS (Password | Confirm Password) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                   <Input
                     label="Password"
                     id="password"
@@ -545,18 +581,21 @@ export default function DonorRegisterPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Input
-                    label="Phone Number"
-                    id="phone"
-                    placeholder="9876543210"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    error={errors.phone}
-                    icon={Phone}
-                    required
-                    maxLength={10}
-                  />
+                {/* ROW 3: THREE EQUAL COLUMNS (Phone Number | Gender | Date of Birth) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+                  <div>
+                    <Input
+                      label="Phone Number"
+                      id="phone"
+                      placeholder="9876543210"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      error={errors.phone}
+                      icon={Phone}
+                      required
+                      maxLength={10}
+                    />
+                  </div>
 
                   <Select
                     label="Gender (Optional)"
@@ -581,16 +620,30 @@ export default function DonorRegisterPage() {
                 </div>
 
                 {/* Navigation Button */}
-                <div className="pt-4 flex justify-end">
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={handleNext}
-                    className="font-semibold text-xs flex items-center gap-1.5"
-                  >
-                    <span>Next: Blood Group & Location</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
+                <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-[#E2E8F0] dark:border-zinc-800">
+                  {!isEmailVerified ? (
+                    <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 font-medium">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
+                      <span>Email verification is required to unlock the next step</span>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-medium">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+                      <span>Email verified &mdash; click next to proceed</span>
+                    </div>
+                  )}
+                  <div className="sm:ml-auto">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={handleNext}
+                      disabled={!isEmailVerified || !verifiedEmail || formData.email.trim().toLowerCase() !== verifiedEmail.toLowerCase()}
+                      className="w-full sm:w-auto font-semibold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span>Next: Blood Group & Location</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
