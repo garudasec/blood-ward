@@ -18,6 +18,9 @@ export const isEmailConfigured = () => {
  * Checks whether any email delivery channel (database provider or environment SMTP) is available
  */
 export const isAnyEmailServiceAvailable = async () => {
+  if (process.env.RESEND_API_KEY) {
+    return true;
+  }
   if (isEmailConfigured()) {
     return true;
   }

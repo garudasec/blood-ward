@@ -10,8 +10,8 @@ const notificationProviderSchema = new mongoose.Schema(
     },
     driver: {
       type: String,
-      enum: ['textbee', 'capcom6', 'smtp'],
-      required: [true, 'Driver is required (textbee, capcom6, or smtp)'],
+      enum: ['textbee', 'capcom6', 'smtp', 'resend'],
+      required: [true, 'Driver is required (textbee, capcom6, smtp, or resend)'],
     },
     name: {
       type: String,
@@ -109,8 +109,8 @@ notificationProviderSchema.pre('validate', function () {
   if (this.providerType === 'sms' && !['textbee', 'capcom6'].includes(this.driver)) {
     throw new Error(`Invalid driver "${this.driver}" for SMS provider. Allowed: "textbee", "capcom6".`);
   }
-  if (this.providerType === 'email' && this.driver !== 'smtp') {
-    throw new Error(`Invalid driver "${this.driver}" for Email provider. Allowed: "smtp".`);
+  if (this.providerType === 'email' && !['smtp', 'resend'].includes(this.driver)) {
+    throw new Error(`Invalid driver "${this.driver}" for Email provider. Allowed: "smtp", "resend".`);
   }
 });
 
@@ -167,6 +167,18 @@ notificationProviderSchema.methods.setCredentials = function (credentials) {
       senderAddress: credentials.senderAddress || '',
       senderName: credentials.senderName || '',
       hasPassword: Boolean(credentials.smtpPass),
+    };
+  } else if (this.driver === 'resend') {
+    const key = credentials.apiKey ? String(credentials.apiKey).trim() : '';
+    let maskedKey = '';
+    if (key) {
+      maskedKey = key.length > 8 ? `${key.slice(0, 7)}...${key.slice(-4)}` : 're_***';
+    }
+    this.configSummary = {
+      apiKeyMasked: maskedKey,
+      senderAddress: credentials.senderAddress || 'onboarding@resend.dev',
+      senderName: credentials.senderName || 'BloodWard Network',
+      hasApiKey: Boolean(key),
     };
   }
 };

@@ -58,7 +58,7 @@ export default function OtpVerificationModal({
   }, [isOpen, target]);
 
   const handleSendOtp = async () => {
-    if (!target) return;
+    if (!target || isSending) return;
     setError("");
     setIsSending(true);
 

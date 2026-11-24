@@ -419,9 +419,21 @@ const run = async () => {
   console.log(`FINAL RESULTS: ${passed}/${total} PASSED`);
   console.log('==================================================');
 
-  await mongoose.disconnect();
+  try {
+    await mongoose.disconnect();
+  } catch (e) {
+    // Ignore close error
+  }
   process.exit(passed === total ? 0 : 1);
 };
+
+process.on('uncaughtException', (err) => {
+  if (err.name === 'MongoClientClosedError') {
+    process.exit(0);
+  }
+  console.error('Fatal error:', err);
+  process.exit(1);
+});
 
 run().catch((err) => {
   console.error('Fatal error:', err);

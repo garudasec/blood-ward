@@ -36,6 +36,9 @@ export const sendEmailOtp = async (req, res, next) => {
 
     if (!result.success) {
       if (result.inCooldown) {
+        if (result.remainingSeconds) {
+          res.set('Retry-After', String(result.remainingSeconds));
+        }
         return res.status(429).json({
           success: false,
           inCooldown: true,
@@ -43,6 +46,47 @@ export const sendEmailOtp = async (req, res, next) => {
           message: result.error,
         });
       }
+
+      if (result.errorCode === 'RATE_LIMIT_EXCEEDED') {
+        res.set('Retry-After', '3600');
+        return res.status(429).json({
+          success: false,
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+          message: result.error,
+        });
+      }
+
+      if (result.errorCode === 'TIMEOUT' || result.isUncertain) {
+        return res.status(504).json({
+          success: false,
+          errorCode: 'TIMEOUT',
+          message: result.error || 'Email dispatch timed out. Please try again.',
+        });
+      }
+
+      // Distinguish infrastructure / provider failures and return HTTP 503
+      const providerErrorCodes = [
+        'AUTH_FAILURE',
+        'UNVERIFIED_SENDER',
+        'DISPATCH_ERROR',
+        'NETWORK_ERROR',
+        'PROVIDER_UNHEALTHY',
+        'QUOTA_EXHAUSTED',
+        'SSRF_BLOCKED',
+        'CONFIG_ERROR',
+        'NO_EMAIL_PROVIDER_CONFIGURED',
+        'ENV_SMTP_ERROR',
+        'ENV_RESEND_ERROR',
+      ];
+
+      if (providerErrorCodes.includes(result.errorCode)) {
+        return res.status(503).json({
+          success: false,
+          errorCode: result.errorCode,
+          message: result.error || 'Email delivery service is currently unavailable. Please try again later.',
+        });
+      }
+
       return next(new AppError(result.error || 'Failed to dispatch email verification OTP.', 400));
     }
 
