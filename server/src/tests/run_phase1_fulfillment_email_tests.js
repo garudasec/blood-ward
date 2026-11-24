@@ -5,11 +5,6 @@ import BloodRequest from '../models/bloodRequest.js';
 import Match from '../models/match.model.js';
 import InAppNotification from '../models/inAppNotification.model.js';
 import notificationManager from '../services/notification/notificationManager.js';
-import {
-  notifyDonationCompleted,
-  dispatchCompletionEmails,
-  retryCompletionEmail,
-} from '../services/matchNotificationService.js';
 import { fulfillBloodRequest } from '../controllers/bloodRequestController.js';
 
 let passed = 0;
@@ -27,7 +22,7 @@ function assert(condition, message) {
 
 async function runTests() {
   console.log('==================================================');
-  console.log('RUNNING PHASE 1 REGRESSION TESTS: MATCH FULFILLMENT & EMAIL DELIVERY');
+  console.log('RUNNING PHASE 1 REGRESSION TESTS: MATCH FULFILLMENT & IN-APP NOTIFICATIONS');
   console.log('Enforcing database isolation on bloodward_test');
   console.log('==================================================\n');
 
@@ -39,7 +34,7 @@ async function runTests() {
   await Match.deleteMany({ hospitalName: 'Phase 1 Test Hospital' });
   await InAppNotification.deleteMany({ title: { $regex: /Fulfilled|Completed/ } });
 
-  // Save original sendEmail
+  // Save original sendEmail to confirm NO emails are sent during match fulfillment
   const originalSendEmail = notificationManager.sendEmail;
 
   try {
@@ -84,16 +79,16 @@ async function runTests() {
       isEmailVerified: true,
     });
 
-    // -------------------------------------------------------------------------
-    // TEST 1: Successful Fulfillment & Delivery Acceptance
-    // -------------------------------------------------------------------------
-    console.log('\n--- Test 1: Successful Fulfillment & Email Acceptance ---');
-
-    let emailCalls = [];
+    const emailCalls = [];
     notificationManager.sendEmail = async (opts) => {
       emailCalls.push(opts);
       return { success: true, messageId: `msg_${Date.now()}` };
     };
+
+    // -------------------------------------------------------------------------
+    // TEST 1: Successful Fulfillment & In-App Notification Dispatch (No Email)
+    // -------------------------------------------------------------------------
+    console.log('\n--- Test 1: Successful Fulfillment & In-App Notifications ---');
 
     const req1 = await BloodRequest.create({
       recipient: recipient._id,
@@ -117,7 +112,6 @@ async function runTests() {
       status: 'Accepted',
     });
 
-    // Mock controller req/res
     let resStatus = null;
     let resData = null;
     const mockReq1 = {
@@ -135,11 +129,10 @@ async function runTests() {
         };
       },
     };
-    const mockNext1 = (err) => {
-      if (err) console.error('Next called with err:', err);
-    };
 
-    await fulfillBloodRequest(mockReq1, mockRes1, mockNext1);
+    await fulfillBloodRequest(mockReq1, mockRes1, (err) => {
+      if (err) console.error('Next called with err:', err);
+    });
 
     assert(resStatus === 200, 'fulfillBloodRequest returns HTTP 200');
     assert(resData && resData.success === true, 'Response contains success: true');
@@ -147,142 +140,21 @@ async function runTests() {
     const updatedReq1 = await BloodRequest.findById(req1._id);
     assert(updatedReq1.status === 'Fulfilled', 'BloodRequest transitioned to Fulfilled');
 
-    // Wait a short moment for async notifications
     await new Promise((r) => setTimeout(r, 100));
 
     const updatedMatch1 = await Match.findById(match1._id);
     assert(updatedMatch1.status === 'Completed', 'Match status transitioned to Completed');
-    assert(updatedMatch1.completionEmailSent === true, 'completionEmailSent marked true after successful provider acceptance');
-    assert(emailCalls.length === 2, 'Sent completion emails to both donor and recipient');
-    assert(
-      emailCalls.some((c) => c.to === donor1.email) && emailCalls.some((c) => c.to === recipient.email),
-      'Correct donor and recipient emails targeted'
-    );
+    assert(emailCalls.length === 0, 'Zero outbound emails dispatched on donation fulfillment');
+
+    const donorNotif1 = await InAppNotification.findOne({ user: donor1._id, match: match1._id, type: 'donation_completed' });
+    const recNotif1 = await InAppNotification.findOne({ user: recipient._id, match: match1._id, type: 'donation_completed' });
+    assert(donorNotif1 !== null, 'Donor received in-app donation_completed notification');
+    assert(recNotif1 !== null, 'Recipient received in-app donation_completed notification');
 
     // -------------------------------------------------------------------------
-    // TEST 2: Email Provider Failure (Definite Failure)
+    // TEST 2: Idempotent Duplicate Fulfillment Requests
     // -------------------------------------------------------------------------
-    console.log('\n--- Test 2: Definite Email Provider Failure ---');
-
-    emailCalls = [];
-    notificationManager.sendEmail = async (opts) => {
-      emailCalls.push(opts);
-      return { success: false, error: 'SMTP connection refused 550' };
-    };
-
-    const req2 = await BloodRequest.create({
-      recipient: recipient._id,
-      recipientName: recipient.fullName,
-      bloodGroup: 'O+',
-      unitsNeeded: 1,
-      hospitalName: 'Phase 1 Test Hospital',
-      city: 'Mumbai',
-      status: 'In Progress',
-      requiredDate: '2026-12-31',
-      acceptedDonor: donor1._id,
-    });
-
-    const match2 = await Match.create({
-      request: req2._id,
-      donor: donor1._id,
-      recipient: recipient._id,
-      bloodGroup: 'O+',
-      hospitalName: 'Phase 1 Test Hospital',
-      city: 'Mumbai',
-      status: 'Accepted',
-    });
-
-    const res2 = {
-      status: (code) => ({
-        json: (data) => {
-          resStatus = code;
-          resData = data;
-        },
-      }),
-    };
-    await fulfillBloodRequest({ params: { id: req2._id.toString() }, user: mockReq1.user, ip: '127.0.0.1' }, res2, () => {});
-
-    await new Promise((r) => setTimeout(r, 100));
-
-    const updatedReq2 = await BloodRequest.findById(req2._id);
-    assert(updatedReq2.status === 'Fulfilled', 'Request remains Fulfilled despite email failure (no improper rollback)');
-
-    const updatedMatch2 = await Match.findById(match2._id);
-    assert(updatedMatch2.status === 'Completed', 'Match remains Completed');
-    assert(updatedMatch2.completionEmailSent === false, 'completionEmailSent is FALSE when email delivery fails');
-    assert(
-      updatedMatch2.metadata?.donorCompletionEmailError !== undefined,
-      'Definite failure records actionable error in metadata'
-    );
-
-    // -------------------------------------------------------------------------
-    // TEST 3: Email Retry for Failed Delivery
-    // -------------------------------------------------------------------------
-    console.log('\n--- Test 3: Email Retry on Failed Match ---');
-
-    emailCalls = [];
-    notificationManager.sendEmail = async (opts) => {
-      emailCalls.push(opts);
-      return { success: true, messageId: `msg_retry_${Date.now()}` };
-    };
-
-    const retryResult = await retryCompletionEmail(match2._id);
-    assert(retryResult.success === true, 'retryCompletionEmail returns success: true');
-
-    const retriedMatch2 = await Match.findById(match2._id);
-    assert(retriedMatch2.completionEmailSent === true, 'completionEmailSent updated to true after successful retry');
-    assert(emailCalls.length === 2, 'Dispatched retry messages to unconfirmed parties');
-
-    // -------------------------------------------------------------------------
-    // TEST 4: Uncertain Delivery Outcome
-    // -------------------------------------------------------------------------
-    console.log('\n--- Test 4: Uncertain Delivery Outcome Handling ---');
-
-    emailCalls = [];
-    notificationManager.sendEmail = async (opts) => {
-      emailCalls.push(opts);
-      return { success: false, isUncertain: true, error: 'Gateway timeout 504' };
-    };
-
-    const req3 = await BloodRequest.create({
-      recipient: recipient._id,
-      recipientName: recipient.fullName,
-      bloodGroup: 'O+',
-      unitsNeeded: 1,
-      hospitalName: 'Phase 1 Test Hospital',
-      city: 'Mumbai',
-      status: 'In Progress',
-      requiredDate: '2026-12-31',
-      acceptedDonor: donor1._id,
-    });
-
-    const match3 = await Match.create({
-      request: req3._id,
-      donor: donor1._id,
-      recipient: recipient._id,
-      bloodGroup: 'O+',
-      hospitalName: 'Phase 1 Test Hospital',
-      city: 'Mumbai',
-      status: 'Accepted',
-    });
-
-    await fulfillBloodRequest({ params: { id: req3._id.toString() }, user: mockReq1.user, ip: '127.0.0.1' }, res2, () => {});
-    await new Promise((r) => setTimeout(r, 100));
-
-    const updatedMatch3 = await Match.findById(match3._id);
-    assert(updatedMatch3.completionEmailSent === false, 'completionEmailSent remains false on uncertain outcome');
-    assert(updatedMatch3.metadata?.completionEmailUncertain === true, 'Match metadata flags completionEmailUncertain');
-
-    // -------------------------------------------------------------------------
-    // TEST 5: Duplicate Fulfillment Request (Idempotency)
-    // -------------------------------------------------------------------------
-    console.log('\n--- Test 5: Idempotent Duplicate Fulfillment Requests ---');
-
-    emailCalls = [];
-    notificationManager.sendEmail = async (opts) => {
-      emailCalls.push(opts);
-      return { success: true };
-    };
+    console.log('\n--- Test 2: Idempotent Duplicate Fulfillment Requests ---');
 
     let dupStatus = null;
     let dupData = null;
@@ -295,17 +167,19 @@ async function runTests() {
       }),
     };
 
-    // Call fulfill on already fulfilled req1
     await fulfillBloodRequest({ params: { id: req1._id.toString() }, user: mockReq1.user, ip: '127.0.0.1' }, resDup, () => {});
+    await new Promise((r) => setTimeout(r, 50));
 
     assert(dupStatus === 200, 'Duplicate fulfillment returns HTTP 200 gracefully');
     assert(dupData.message.includes('already fulfilled'), 'Explains request is already fulfilled');
-    assert(emailCalls.length === 0, 'No duplicate email notifications triggered on duplicate fulfillment');
+
+    const donorNotifsCount = await InAppNotification.countDocuments({ user: donor1._id, match: match1._id, type: 'donation_completed' });
+    assert(donorNotifsCount === 1, 'No duplicate in-app notifications triggered on duplicate fulfillment');
 
     // -------------------------------------------------------------------------
-    // TEST 6: Concurrent Fulfillment Race Condition Guard
+    // TEST 3: Concurrent Fulfillment Race Condition Guard
     // -------------------------------------------------------------------------
-    console.log('\n--- Test 6: Concurrent Fulfillment Requests (Atomic State Transition) ---');
+    console.log('\n--- Test 3: Concurrent Fulfillment Requests (Atomic State Transition) ---');
 
     const reqConcurrent = await BloodRequest.create({
       recipient: recipient._id,
@@ -329,12 +203,9 @@ async function runTests() {
       status: 'Accepted',
     });
 
-    let calls1 = 0;
-    let calls2 = 0;
     const makeRes = (tracker) => ({
       status: (code) => ({
         json: (d) => {
-          if (code === 200) tracker.success = true;
           tracker.code = code;
           tracker.data = d;
         },
@@ -344,26 +215,27 @@ async function runTests() {
     const t1 = {};
     const t2 = {};
 
-    // Execute concurrently
     await Promise.all([
       fulfillBloodRequest({ params: { id: reqConcurrent._id.toString() }, user: mockReq1.user, ip: '127.0.0.1' }, makeRes(t1), () => {}),
       fulfillBloodRequest({ params: { id: reqConcurrent._id.toString() }, user: mockReq1.user, ip: '127.0.0.1' }, makeRes(t2), () => {}),
     ]);
+    await new Promise((r) => setTimeout(r, 100));
 
     assert(t1.code === 200 && t2.code === 200, 'Both concurrent calls finish with HTTP 200');
     const finalReqConcurrent = await BloodRequest.findById(reqConcurrent._id);
     assert(finalReqConcurrent.status === 'Fulfilled', 'State atomically remains Fulfilled');
 
-    // -------------------------------------------------------------------------
-    // TEST 7: Correct Donor and Recipient Selection Isolation
-    // -------------------------------------------------------------------------
-    console.log('\n--- Test 7: Correct Donor and Recipient Selection ---');
+    const concurrentNotifsCount = await InAppNotification.countDocuments({
+      user: donor1._id,
+      match: matchConcurrent._id,
+      type: 'donation_completed',
+    });
+    assert(concurrentNotifsCount === 1, 'Concurrent requests produce only 1 in-app notification per party');
 
-    emailCalls = [];
-    notificationManager.sendEmail = async (opts) => {
-      emailCalls.push(opts);
-      return { success: true };
-    };
+    // -------------------------------------------------------------------------
+    // TEST 4: Correct Donor and Recipient Selection Isolation
+    // -------------------------------------------------------------------------
+    console.log('\n--- Test 4: Correct Donor and Recipient Selection ---');
 
     const reqIsolated = await BloodRequest.create({
       recipient: recipient._id,
@@ -390,21 +262,18 @@ async function runTests() {
     await fulfillBloodRequest({ params: { id: reqIsolated._id.toString() }, user: mockReq1.user, ip: '127.0.0.1' }, resDup, () => {});
     await new Promise((r) => setTimeout(r, 100));
 
-    assert(
-      emailCalls.some((c) => c.to === donor2.email),
-      'Donor 2 correctly received the notification'
-    );
-    assert(
-      !emailCalls.some((c) => c.to === donor1.email),
-      'Donor 1 did NOT receive unassigned notification (cross-donor isolation)'
-    );
+    const donor2Notif = await InAppNotification.findOne({ user: donor2._id, match: matchIsolated._id });
+    const donor1SpuriousNotif = await InAppNotification.findOne({ user: donor1._id, match: matchIsolated._id });
+    assert(donor2Notif !== null, 'Donor 2 correctly received the in-app completion notification');
+    assert(donor1SpuriousNotif === null, 'Donor 1 did NOT receive unassigned notification (cross-donor isolation)');
+    assert(emailCalls.length === 0, 'Zero outbound emails dispatched across all fulfillment scenarios');
 
     console.log('\n==================================================');
     console.log(`FINAL RESULTS: ${passed}/${total} TESTS PASSED`);
     console.log('==================================================');
   } finally {
-    // Restore original sendEmail
     notificationManager.sendEmail = originalSendEmail;
+    await new Promise((r) => setTimeout(r, 200));
     await mongoose.disconnect();
   }
 }

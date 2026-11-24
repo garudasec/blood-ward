@@ -637,41 +637,28 @@ async function run() {
     assert(recNotif !== null, "In-app notification created for requesting recipient");
     assert(recNotif.type === "potential_match", "Recipient notification type is potential_match");
 
-    // Wait 50ms for setImmediate async email dispatch
+    // Wait 50ms to confirm no background email dispatch
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    // 4.3 Verify outbound email dispatch & subjects
-    const donorEmail = sentEmails.find((e) => e.to === donorInDb.email);
-    assert(donorEmail !== undefined, "Email dispatched to matched voluntary donor");
+    // 4.3 Verify NO outbound emails are dispatched for matching (in-app only)
+    assert(sentEmails.length === 0, "Zero outbound emails dispatched for donor/recipient matching");
+
+    // 4.4 Privacy check: donor phone number is NOT shared in recipient in-app notification
+    assert(!recNotif.message.includes(donorInDb.phone), "Donor phone number is NOT leaked in recipient notification message");
     assert(
-      donorEmail.subject === "BloodWard – A blood donation match has been found",
-      "Donor email subject exactly matches: 'BloodWard – A blood donation match has been found'"
+      !JSON.stringify(recNotif.metadata || {}).includes(donorInDb.phone),
+      "Donor phone number is NOT leaked in recipient notification metadata"
     );
 
-    const recEmail = sentEmails.find((e) => e.to === recipientUser.email);
-    assert(recEmail !== undefined, "Email dispatched to blood requester");
-    assert(
-      recEmail.subject === "BloodWard – A donor match has been found for your request",
-      "Recipient email subject exactly matches: 'BloodWard – A donor match has been found for your request'"
-    );
-
-    // 4.4 Privacy check: no private phone numbers or coordinates in emails
-    assert(!donorEmail.html.includes(donorInDb.phone), "Donor phone number is NEVER leaked in email html");
-    assert(!recEmail.html.includes(donorInDb.phone), "Donor phone number is NOT shared with recipient at matching stage");
-    assert(!donorEmail.text.includes(donorInDb.phone), "Donor phone number is not in email text");
-
-    // 4.5 Verify match email flags are set
-    const matchInDb = await Match.findById(matchId);
-    assert(matchInDb.donorEmailSent === true, "Match record updated with donorEmailSent: true");
-    assert(matchInDb.recipientEmailSent === true, "Match record updated with recipientEmailSent: true");
-
-    // 4.6 Deduplication: calling createAndNotifyPotentialMatches again must NOT send duplicate emails
-    const initialSentCount = sentEmails.length;
+    // 4.5 Deduplication: calling createAndNotifyPotentialMatches again must NOT create duplicate in-app notifications
+    const initialDonorNotifCount = await InAppNotification.countDocuments({ user: donorInDb._id, match: matchId });
     await createAndNotifyPotentialMatches(bloodReq, matchedDonors);
     await new Promise((resolve) => setTimeout(resolve, 50));
-    assert(sentEmails.length === initialSentCount, "Deduplication: no duplicate emails dispatched on replay");
+    const afterDonorNotifCount = await InAppNotification.countDocuments({ user: donorInDb._id, match: matchId });
+    assert(afterDonorNotifCount === initialDonorNotifCount, "Deduplication: no duplicate in-app notifications on replay");
+    assert(sentEmails.length === 0, "No emails dispatched on match replay");
 
-    // 4.7 Email failure resilience: email failure must NEVER fail match creation or block in-app notifications
+    // 4.6 Resilience: match & in-app notifications work even if email provider is down
     notificationManager.sendEmail = async () => {
       throw new Error("Simulated downstream email provider failure");
     };
@@ -691,10 +678,10 @@ async function run() {
     });
 
     const secondMatches = await createAndNotifyPotentialMatches(bloodReq, [secondDonor]);
-    assert(secondMatches.length === 1, "Match successfully created even when email provider fails");
+    assert(secondMatches.length === 1, "Match successfully created independently of email provider");
 
     const secondDonorNotif = await InAppNotification.findOne({ user: secondDonor._id, match: secondMatches[0]._id });
-    assert(secondDonorNotif !== null, "In-app notification created even when email dispatch fails");
+    assert(secondDonorNotif !== null, "In-app notification created reliably");
 
     // Restore original sendEmail
     notificationManager.sendEmail = originalSendEmail;
