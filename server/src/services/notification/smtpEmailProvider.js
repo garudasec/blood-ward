@@ -145,6 +145,7 @@ export class SmtpEmailProvider {
     } catch (err) {
       const responseCode = err.responseCode || (typeof err.code === 'number' ? err.code : null);
       const codeString = String(err.code || '');
+      const messageString = String(err.message || '').toLowerCase();
       let errorCode = 'DISPATCH_ERROR';
       let isUncertain = false;
 
@@ -154,11 +155,22 @@ export class SmtpEmailProvider {
         errorCode = 'AUTH_FAILURE';
       } else if (responseCode === 421 || responseCode === 450 || responseCode === 451) {
         errorCode = 'RATE_LIMIT';
-      } else if (codeString.includes('ETIMEDOUT') || err.message?.includes('timed out')) {
+      } else if (codeString.includes('ETIMEDOUT') || messageString.includes('timed out') || messageString.includes('timeout')) {
         errorCode = 'TIMEOUT';
         isUncertain = true; // Email might have been received before timeout
+      } else if (
+        codeString.includes('ECONNRESET') ||
+        codeString.includes('EPIPE') ||
+        messageString.includes('socket hang up') ||
+        messageString.includes('socket closed') ||
+        messageString.includes('connection reset') ||
+        messageString.includes('broken pipe')
+      ) {
+        errorCode = 'NETWORK_ERROR';
+        isUncertain = true; // Ambiguous connection error: socket dropped after data transfer began
       } else if (codeString.includes('ECONNREFUSED') || codeString.includes('ENOTFOUND')) {
         errorCode = 'NETWORK_ERROR';
+        isUncertain = false; // Definite failure: connection was never established
       }
 
       return {

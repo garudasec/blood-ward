@@ -10,6 +10,7 @@ import connectDB from '../config/db.js';
 import User from '../models/user.model.js';
 import Otp from '../models/otp.model.js';
 import OtpThrottle from '../models/otpThrottle.model.js';
+import NotificationProvider from '../models/notificationProvider.model.js';
 import authRouter from '../routes/auth.routes.js';
 import otpRouter from '../routes/otp.routes.js';
 
@@ -77,6 +78,7 @@ async function runTests() {
     await User.deleteMany({ email: /@test-otp-enforce\.com$/i });
     await Otp.deleteMany({ target: /@test-otp-enforce\.com$/i });
     await OtpThrottle.deleteMany({ target: /@test-otp-enforce\.com$/i });
+    await NotificationProvider.deleteMany({});
 
     // ----------------------------------------------------
     // TEST SECTION 1: Direct Registration Bypass Prevention

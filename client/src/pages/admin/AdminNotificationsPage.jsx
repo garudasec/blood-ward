@@ -607,18 +607,41 @@ function ProviderCard({ provider, onToggle, onRecover, onTest, onEdit, onDelete 
 
       {/* Safe Config Summary */}
       <div className="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-[#121418] border border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 space-y-1">
-        <div>
-          <span className="text-slate-400">Host: </span>
-          <span className="font-mono text-slate-800 dark:text-slate-200">
-            {provider.configSummary?.smtpHost || 'smtp.gmail.com'}:{provider.configSummary?.smtpPort || 587}
-          </span>
-        </div>
-        <div>
-          <span className="text-slate-400">Account: </span>
-          <span className="font-mono text-slate-800 dark:text-slate-200">
-            {provider.configSummary?.smtpUserMasked || 'Configured'}
-          </span>
-        </div>
+        {provider.driver === 'resend' ? (
+          <>
+            <div>
+              <span className="text-slate-400">Protocol: </span>
+              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">HTTPS REST API (Port 443)</span>
+            </div>
+            <div>
+              <span className="text-slate-400">API Key: </span>
+              <span className="font-mono text-slate-800 dark:text-slate-200">
+                {provider.configSummary?.apiKeyMasked || (provider.configSummary?.hasApiKey ? '••••••••' : 'Not configured')}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-400">Sender: </span>
+              <span className="font-mono text-slate-800 dark:text-slate-200">
+                {provider.configSummary?.senderAddress || 'onboarding@resend.dev'}
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <span className="text-slate-400">Host: </span>
+              <span className="font-mono text-slate-800 dark:text-slate-200">
+                {provider.configSummary?.smtpHost || 'smtp.gmail.com'}:{provider.configSummary?.smtpPort || 587}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-400">Account: </span>
+              <span className="font-mono text-slate-800 dark:text-slate-200">
+                {provider.configSummary?.smtpUserMasked || 'Configured'}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Daily Quota Indicator */}

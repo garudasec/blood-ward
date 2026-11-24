@@ -115,7 +115,7 @@ const notificationLogSchema = new mongoose.Schema(
     },
     driver: {
       type: String,
-      enum: ['textbee', 'capcom6', 'smtp', 'mock', 'none'],
+      enum: ['textbee', 'capcom6', 'smtp', 'resend', 'mock', 'none'],
       default: 'none',
     },
     purpose: {

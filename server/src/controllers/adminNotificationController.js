@@ -3,6 +3,7 @@ import NotificationLog from '../models/notificationLog.model.js';
 import AppError from '../utils/appError.js';
 import { logAuditEvent } from '../utils/auditLogger.js';
 import { SmtpEmailProvider } from '../services/notification/smtpEmailProvider.js';
+import { ResendEmailProvider } from '../services/notification/resendEmailProvider.js';
 import { maskEmail } from '../utils/encryptionUtils.js';
 import { validateSmtpHostAndPort } from '../utils/ssrfGuard.js';
 
@@ -82,24 +83,29 @@ export async function createProvider(req, res, next) {
       return next(new AppError('Provider type must be "email".', 400));
     }
 
-    if (driver !== 'smtp') {
-      return next(new AppError('Invalid driver for Email provider. Allowed: "smtp".', 400));
+    if (!['smtp', 'resend'].includes(driver)) {
+      return next(new AppError('Invalid driver for Email provider. Allowed: "smtp", "resend".', 400));
     }
 
     if (!credentials || typeof credentials !== 'object') {
       return next(new AppError('Provider credentials object is required.', 400));
     }
 
-    if (!credentials.smtpHost || !credentials.smtpUser || !credentials.smtpPass) {
-      return next(new AppError('SMTP requires "smtpHost", "smtpUser", and "smtpPass".', 400));
+    if (driver === 'smtp') {
+      if (!credentials.smtpHost || !credentials.smtpUser || !credentials.smtpPass) {
+        return next(new AppError('SMTP requires "smtpHost", "smtpUser", and "smtpPass".', 400));
+      }
+      await validateSmtpHostAndPort(credentials.smtpHost, credentials.smtpPort);
+    } else if (driver === 'resend') {
+      if (!credentials.apiKey || typeof credentials.apiKey !== 'string' || !credentials.apiKey.trim()) {
+        return next(new AppError('Resend requires "apiKey".', 400));
+      }
     }
-
-    await validateSmtpHostAndPort(credentials.smtpHost, credentials.smtpPort);
 
     const provider = new NotificationProvider({
       name: name.trim(),
       providerType: 'email',
-      driver: 'smtp',
+      driver,
       priority: Number(priority) || 1,
       dailyLimit: Number(dailyLimit) >= 0 ? Number(dailyLimit) : 500,
       isEnabled: Boolean(isEnabled),
@@ -177,41 +183,60 @@ export async function updateProvider(req, res, next) {
     // Credential replacement logic
     if (credentials && typeof credentials === 'object') {
       let existingCreds = {};
-      try {
-        existingCreds = provider.getDecryptedCredentials();
-      } catch (err) {
-        existingCreds = {};
+      if (provider.encryptedCredentials) {
+        try {
+          existingCreds = provider.getDecryptedCredentials();
+        } catch (decryptErr) {
+          return next(new AppError('Failed to decrypt existing provider credentials for update. Operation aborted to preserve credential integrity.', 500));
+        }
       }
 
       const mergedCreds = { ...existingCreds };
 
-      if (credentials.smtpHost !== undefined && String(credentials.smtpHost).trim()) {
-        mergedCreds.smtpHost = String(credentials.smtpHost).trim();
-      }
-      if (credentials.smtpPort !== undefined && credentials.smtpPort) {
-        mergedCreds.smtpPort = Number(credentials.smtpPort) || 587;
-      }
-      if (credentials.secure !== undefined) {
-        mergedCreds.secure = Boolean(credentials.secure);
-      }
-      if (credentials.smtpUser !== undefined && String(credentials.smtpUser).trim()) {
-        const trimmedUser = String(credentials.smtpUser).trim();
-        if (trimmedUser.includes('*')) {
-          return next(new AppError('Masked SMTP username rejected. Provide full username or leave blank to keep existing.', 400));
+      if (provider.driver === 'smtp') {
+        if (credentials.smtpHost !== undefined && String(credentials.smtpHost).trim()) {
+          mergedCreds.smtpHost = String(credentials.smtpHost).trim();
         }
-        mergedCreds.smtpUser = trimmedUser;
-      }
-      if (credentials.smtpPass !== undefined && String(credentials.smtpPass).trim()) {
-        mergedCreds.smtpPass = String(credentials.smtpPass).trim();
-      }
-      if (credentials.senderAddress !== undefined) {
-        mergedCreds.senderAddress = String(credentials.senderAddress).trim();
-      }
-      if (credentials.senderName !== undefined) {
-        mergedCreds.senderName = String(credentials.senderName).trim();
+        if (credentials.smtpPort !== undefined && credentials.smtpPort) {
+          mergedCreds.smtpPort = Number(credentials.smtpPort) || 587;
+        }
+        if (credentials.secure !== undefined) {
+          mergedCreds.secure = Boolean(credentials.secure);
+        }
+        if (credentials.smtpUser !== undefined && String(credentials.smtpUser).trim()) {
+          const trimmedUser = String(credentials.smtpUser).trim();
+          if (trimmedUser.includes('*')) {
+            return next(new AppError('Masked SMTP username rejected. Provide full username or leave blank to keep existing.', 400));
+          }
+          mergedCreds.smtpUser = trimmedUser;
+        }
+        if (credentials.smtpPass !== undefined && String(credentials.smtpPass).trim()) {
+          mergedCreds.smtpPass = String(credentials.smtpPass).trim();
+        }
+        if (credentials.senderAddress !== undefined) {
+          mergedCreds.senderAddress = String(credentials.senderAddress).trim();
+        }
+        if (credentials.senderName !== undefined) {
+          mergedCreds.senderName = String(credentials.senderName).trim();
+        }
+
+        await validateSmtpHostAndPort(mergedCreds.smtpHost, mergedCreds.smtpPort);
+      } else if (provider.driver === 'resend') {
+        if (credentials.apiKey !== undefined && String(credentials.apiKey).trim()) {
+          const trimmedKey = String(credentials.apiKey).trim();
+          if (trimmedKey.includes('*')) {
+            return next(new AppError('Masked Resend API key rejected. Provide full API key or leave blank to keep existing.', 400));
+          }
+          mergedCreds.apiKey = trimmedKey;
+        }
+        if (credentials.senderAddress !== undefined) {
+          mergedCreds.senderAddress = String(credentials.senderAddress).trim();
+        }
+        if (credentials.senderName !== undefined) {
+          mergedCreds.senderName = String(credentials.senderName).trim();
+        }
       }
 
-      await validateSmtpHostAndPort(mergedCreds.smtpHost, mergedCreds.smtpPort);
       provider.setCredentials(mergedCreds);
     }
 
@@ -299,25 +324,34 @@ export async function recoverProvider(req, res, next) {
     try {
       rawCredentials = provider.getDecryptedCredentials();
     } catch (credErr) {
-      return next(new AppError(`Failed to decrypt provider credentials: ${credErr.message}`, 500));
+      return next(new AppError('Failed to decrypt provider credentials.', 500));
     }
 
     let verificationResult = null;
     try {
-      await validateSmtpHostAndPort(rawCredentials.smtpHost, rawCredentials.smtpPort);
-      const emailDriver = new SmtpEmailProvider({
-        host: rawCredentials.smtpHost,
-        port: rawCredentials.smtpPort,
-        user: rawCredentials.smtpUser,
-        pass: rawCredentials.smtpPass,
-        secure: rawCredentials.secure,
-        senderAddress: rawCredentials.senderAddress,
-      });
-      verificationResult = await emailDriver.verifyConnection();
+      if (provider.driver === 'resend') {
+        const resendDriver = new ResendEmailProvider({
+          apiKey: rawCredentials.apiKey,
+          senderAddress: rawCredentials.senderAddress,
+          senderName: rawCredentials.senderName,
+        });
+        verificationResult = await resendDriver.verifyConnection();
+      } else {
+        await validateSmtpHostAndPort(rawCredentials.smtpHost, rawCredentials.smtpPort);
+        const emailDriver = new SmtpEmailProvider({
+          host: rawCredentials.smtpHost,
+          port: rawCredentials.smtpPort,
+          user: rawCredentials.smtpUser,
+          pass: rawCredentials.smtpPass,
+          secure: rawCredentials.secure,
+          senderAddress: rawCredentials.senderAddress,
+        });
+        verificationResult = await emailDriver.verifyConnection();
+      }
     } catch (validationErr) {
       verificationResult = {
         success: false,
-        errorCode: 'SSRF_BLOCKED',
+        errorCode: provider.driver === 'smtp' ? 'SSRF_BLOCKED' : 'VERIFICATION_ERROR',
         error: validationErr.message,
       };
     }
@@ -404,7 +438,7 @@ export async function testProvider(req, res, next) {
     try {
       rawCredentials = provider.getDecryptedCredentials();
     } catch (credErr) {
-      return next(new AppError(`Failed to decrypt provider credentials: ${credErr.message}`, 500));
+      return next(new AppError('Failed to decrypt provider credentials.', 500));
     }
 
     const isLiveDispatch = Boolean(testRecipient && typeof testRecipient === 'string' && testRecipient.trim().length > 0);
@@ -435,23 +469,32 @@ export async function testProvider(req, res, next) {
 
     const now = new Date();
 
-    try {
-      await validateSmtpHostAndPort(rawCredentials.smtpHost, rawCredentials.smtpPort);
-    } catch (validationErr) {
-      if (quotaReserved) {
-        await NotificationProvider.findByIdAndUpdate(provider._id, { $inc: { sentToday: -1 } });
+    let emailDriver;
+    if (provider.driver === 'resend') {
+      emailDriver = new ResendEmailProvider({
+        apiKey: rawCredentials.apiKey,
+        senderAddress: rawCredentials.senderAddress,
+        senderName: rawCredentials.senderName,
+      });
+    } else {
+      try {
+        await validateSmtpHostAndPort(rawCredentials.smtpHost, rawCredentials.smtpPort);
+      } catch (validationErr) {
+        if (quotaReserved) {
+          await NotificationProvider.findByIdAndUpdate(provider._id, { $inc: { sentToday: -1 } });
+        }
+        return next(validationErr);
       }
-      return next(validationErr);
-    }
 
-    const emailDriver = new SmtpEmailProvider({
-      host: rawCredentials.smtpHost,
-      port: rawCredentials.smtpPort,
-      user: rawCredentials.smtpUser,
-      pass: rawCredentials.smtpPass,
-      secure: rawCredentials.secure,
-      senderAddress: rawCredentials.senderAddress,
-    });
+      emailDriver = new SmtpEmailProvider({
+        host: rawCredentials.smtpHost,
+        port: rawCredentials.smtpPort,
+        user: rawCredentials.smtpUser,
+        pass: rawCredentials.smtpPass,
+        secure: rawCredentials.secure,
+        senderAddress: rawCredentials.senderAddress,
+      });
+    }
 
     if (isLiveDispatch && testRecipient.includes('@')) {
       testResult = await emailDriver.sendMail({
