@@ -13,6 +13,9 @@ const envPath = path.resolve(__dirname, '../../.env');
 // Ensure server/.env is loaded
 dotenv.config({ path: envPath });
 
+// Automatically enforce test environment isolation on import
+enforceTestEnvironment();
+
 /**
  * Returns the validated test database URI.
  * Throws a descriptive error if missing or if pointing to production.
@@ -38,6 +41,10 @@ export function getTestMongoUri() {
  */
 export function enforceTestEnvironment() {
   process.env.NODE_ENV = 'test';
+  // Remove live email provider keys from test environment to prevent fallback leaks
+  delete process.env.RESEND_API_KEY;
+  delete process.env.RESEND_FROM;
+  delete process.env.RESEND_SENDER_NAME;
   if (!process.env.ENCRYPTION_SECRET) {
     process.env.ENCRYPTION_SECRET = 'e4d7a8c39f15024b8932c0d9a6e11894a73b2210fe58679124ab8312d90ef014';
   }

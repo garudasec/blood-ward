@@ -86,6 +86,7 @@ export default function EmailVerificationSection({
   }, [isVerified, verifiedEmail, email, status]);
 
   const handleSendOtp = async () => {
+    if (status === "sending" || status === "verifying") return;
     const cleanEmail = (email || "").trim().toLowerCase();
     if (!cleanEmail || !isValidEmail) {
       setError("Enter a valid email first");
@@ -111,6 +112,7 @@ export default function EmailVerificationSection({
   };
 
   const handleVerifyOtp = async () => {
+    if (status === "verifying" || status === "sending") return;
     const cleanEmail = (email || "").trim().toLowerCase();
     const cleanOtp = otp.trim();
 

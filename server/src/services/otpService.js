@@ -101,7 +101,7 @@ export function normalizeTarget(target, targetType = 'email') {
  * @param {string} [params.userName] Optional user display name for email templates
  * @returns {Promise<{ success: boolean, message: string, resendAvailableAt?: Date, expiresAt?: Date, inCooldown?: boolean, remainingSeconds?: number, testOtp?: string }>}
  */
-export async function generateAndSendOtp({ target, targetType = 'email', purpose = 'verification', userName }) {
+export async function generateAndSendOtp({ target, targetType = 'email', purpose = 'verification', userName, skipTestOtpFallback = false }) {
   if (targetType === 'phone') {
     return {
       success: false,
@@ -228,7 +228,7 @@ export async function generateAndSendOtp({ target, targetType = 'email', purpose
 
   // Handle provider dispatch errors
   if (!dispatchResult.success) {
-    if (process.env.NODE_ENV === 'test') {
+    if (!skipTestOtpFallback && process.env.NODE_ENV === 'test' && dispatchResult.errorCode === 'NO_EMAIL_PROVIDER_CONFIGURED') {
       return {
         success: true,
         message: 'Verification code generated for testing.',
@@ -237,6 +237,20 @@ export async function generateAndSendOtp({ target, targetType = 'email', purpose
         testOtp: rawOtp,
       };
     }
+
+    // Priority 2: OTP failure-state correction
+    // If failure is definite (not an ambiguous timeout), delete the saved Otp document immediately
+    // so the user is NOT stuck in an unmerited 60-second cooldown for an email that was never sent.
+    // If failure is ambiguous/uncertain (e.g. network timeout), preserve the OTP record so the
+    // user gives the upstream delivery a chance to arrive and doesn't collide.
+    if (!dispatchResult.isUncertain) {
+      try {
+        await Otp.deleteOne({ _id: otpDoc._id });
+      } catch (cleanupErr) {
+        console.error(`[OTP Cleanup Error] Failed to delete orphaned OTP record: ${cleanupErr.message}`);
+      }
+    }
+
     console.error(`[OTP Dispatch Error] Failed to send OTP email to ${normalized}:`, dispatchResult.error);
     const sanitizedError =
       process.env.NODE_ENV === 'production'
@@ -246,6 +260,7 @@ export async function generateAndSendOtp({ target, targetType = 'email', purpose
     return {
       success: false,
       errorCode: dispatchResult.errorCode,
+      isUncertain: Boolean(dispatchResult.isUncertain),
       error: sanitizedError,
     };
   }

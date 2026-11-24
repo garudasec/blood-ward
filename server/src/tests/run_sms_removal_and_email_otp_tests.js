@@ -84,7 +84,7 @@ async function runTests() {
     // Clean up test data
     await User.deleteMany({ email: /@test-sms-removal\.com$/i });
     await Otp.deleteMany({ target: /@test-sms-removal\.com$/i });
-    await NotificationProvider.deleteMany({ name: /Test Provider SMS Removal/i });
+    await NotificationProvider.deleteMany({});
 
     console.log('\n--- 1. Verification of Removed SMS Endpoints ---');
     const sendPhoneRes = await request('/api/otp/send-phone-otp', {
