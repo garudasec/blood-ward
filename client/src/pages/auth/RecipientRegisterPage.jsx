@@ -19,7 +19,6 @@ import Button from "../../components/common/Button";
 import { GENDER_OPTIONS } from "../../constants/theme";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
-import EmailVerificationSection from "../../components/auth/EmailVerificationSection";
 import { INDIA_STATES_AND_CITIES, INDIAN_STATES_LIST } from "../../constants/indiaLocations";
 
 export default function RecipientRegisterPage() {
@@ -45,18 +44,9 @@ export default function RecipientRegisterPage() {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [serverNotice, setServerNotice] = useState("");
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [verifiedEmail, setVerifiedEmail] = useState("");
 
   const handleChange = (e) => {
     const { id, value } = e.target;
-
-    if (id === "email") {
-      if (isEmailVerified || verifiedEmail) {
-        setIsEmailVerified(false);
-        setVerifiedEmail("");
-      }
-    }
 
     if (id === "phone") {
       const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
@@ -89,8 +79,6 @@ export default function RecipientRegisterPage() {
       newErrors.email = "Email address is required";
     } else if (!/\S+@\S+\.\S+/.test(cleanEmail)) {
       newErrors.email = "Enter a valid email address";
-    } else if (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase()) {
-      newErrors.email = "Email verification is mandatory. Please verify your email with the 6-digit verification code before registering.";
     }
 
     if (!formData.password) {
@@ -125,12 +113,6 @@ export default function RecipientRegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const cleanEmail = formData.email.trim().toLowerCase();
-    if (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase()) {
-      setServerNotice("Email verification is mandatory. Please verify your email before submitting registration.");
-      return;
-    }
-
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -352,14 +334,6 @@ export default function RecipientRegisterPage() {
                   icon={Mail}
                   required
                 />
-                <EmailVerificationSection
-                  email={formData.email}
-                  isVerified={isEmailVerified}
-                  setIsVerified={setIsEmailVerified}
-                  verifiedEmail={verifiedEmail}
-                  setVerifiedEmail={setVerifiedEmail}
-                  accentColor="navy"
-                />
               </div>
             </div>
 
@@ -508,24 +482,13 @@ export default function RecipientRegisterPage() {
                 </div>
               )}
 
-              <div className="pt-4 space-y-2.5 border-t border-[#E2E8F0] dark:border-zinc-800">
-                {!isEmailVerified ? (
-                  <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs flex items-center gap-2 font-medium">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                    <span>Email verification is mandatory before completing recipient registration.</span>
-                  </div>
-                ) : (
-                  <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    <span>Email verified &mdash; ready to complete registration.</span>
-                  </div>
-                )}
+              <div className="pt-4 border-t border-[#E2E8F0] dark:border-zinc-800">
                 <Button
                   type="submit"
                   variant="secondary"
-                  className="w-full py-2.5 font-bold shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-2.5 font-bold shadow-xs flex items-center justify-center gap-2"
                   isLoading={isLoading}
-                  disabled={isLoading || !isEmailVerified || !verifiedEmail || formData.email.trim().toLowerCase() !== verifiedEmail.toLowerCase()}
+                  disabled={isLoading}
                 >
                   <span>Complete Recipient Registration</span>
                 </Button>

@@ -127,7 +127,7 @@ export async function createAndNotifyPotentialMatches(bloodRequest, eligibleDono
       setImmediate(async () => {
         // Donor Email
         if (!match.donorEmailSent && donor.email) {
-          const donorSubject = 'A compatible blood request has been found near you';
+          const donorSubject = 'BloodWard – A blood donation match has been found';
           const donorHtml = `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1E293B;">
               <div style="background-color: #A61B2B; padding: 16px 24px; border-radius: 8px 8px 0 0; color: #ffffff;">
@@ -168,7 +168,7 @@ export async function createAndNotifyPotentialMatches(bloodRequest, eligibleDono
 
         // Recipient Email
         if (!match.recipientEmailSent && recipientUser.email) {
-          const recSubject = 'A potential donor match has been found';
+          const recSubject = 'BloodWard – A donor match has been found for your request';
           const recHtml = `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1E293B;">
               <div style="background-color: #315B83; padding: 16px 24px; border-radius: 8px 8px 0 0; color: #ffffff;">

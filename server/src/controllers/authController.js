@@ -7,14 +7,6 @@ import { logAuditEvent } from "../utils/auditLogger.js";
 import { generateHospitalId } from "../utils/idGenerator.js";
 import { ALLOWED_GENDERS, isValidPincode, normalizeIndianPhone, validateDonorDOB } from "../utils/validators.js";
 import { sendPasswordResetEmail, isEmailConfigured } from "../utils/emailService.js";
-import Otp from "../models/otp.model.js";
-import {
-  generateAndSendOtp,
-  verifyOtp,
-  invalidateOtpsForTarget,
-  isRegistrationOtpVerified,
-  consumeRegistrationOtp,
-} from "../services/otpService.js";
 
 const signToken = (id, role, tokenVersion = 0) => {
   const secret = process.env.JWT_SECRET;
@@ -138,26 +130,9 @@ export const registerDonor = async (req, res, next) => {
       pincode: pincode ? pincode.trim() : "",
       dateOfBirth: dateOfBirth ? String(dateOfBirth).trim() : "",
       availability: donorAvailability,
+      isEmailVerified: false,
+      emailVerifiedAt: null,
     };
-
-    // Check if email was verified via OTP in the last 30 minutes and not yet consumed
-    const emailVerified = await isRegistrationOtpVerified({
-      target: normalizedEmail,
-      targetType: "email",
-      purpose: "verification",
-    });
-
-    if (!emailVerified) {
-      return next(
-        new AppError(
-          "Email verification is mandatory. Please verify your email with the 6-digit verification code before registering.",
-          400
-        )
-      );
-    }
-
-    donorData.isEmailVerified = true;
-    donorData.emailVerifiedAt = new Date();
 
     if (healthQuestionnaire && typeof healthQuestionnaire === "object") {
       donorData.healthQuestionnaire = {
@@ -174,14 +149,6 @@ export const registerDonor = async (req, res, next) => {
     }
 
     const newUser = await User.create(donorData);
-
-    // Atomically consume verified OTP records upon successful user creation
-    await consumeRegistrationOtp({
-      target: normalizedEmail,
-      targetType: "email",
-      purpose: "verification",
-      userId: newUser._id,
-    });
 
     logAuditEvent({
       actor: newUser._id,
@@ -277,22 +244,6 @@ export const registerRecipient = async (req, res, next) => {
       linkedHospitalId = existingHospital._id;
     }
 
-    // Check if email was verified via OTP in the last 30 minutes and not yet consumed
-    const emailVerified = await isRegistrationOtpVerified({
-      target: normalizedEmail,
-      targetType: "email",
-      purpose: "verification",
-    });
-
-    if (!emailVerified) {
-      return next(
-        new AppError(
-          "Email verification is mandatory. Please verify your email with the 6-digit verification code before registering.",
-          400
-        )
-      );
-    }
-
     const newUser = await User.create({
       fullName: fullName.trim(),
       email: normalizedEmail,
@@ -312,16 +263,8 @@ export const registerRecipient = async (req, res, next) => {
       verificationStatus: isHospitalRep ? "pending" : "verified",
       isPhoneVerified: false,
       phoneVerifiedAt: null,
-      isEmailVerified: true,
-      emailVerifiedAt: new Date(),
-    });
-
-    // Atomically consume verified OTP records upon successful user creation
-    await consumeRegistrationOtp({
-      target: normalizedEmail,
-      targetType: "email",
-      purpose: "verification",
-      userId: newUser._id,
+      isEmailVerified: false,
+      emailVerifiedAt: null,
     });
 
     logAuditEvent({
@@ -416,7 +359,6 @@ export const login = async (req, res, next) => {
     next(error);
   }
 };
-
 export const logout = async (req, res) => {
   res.cookie("token", "logout", {
     httpOnly: true,
@@ -548,7 +490,6 @@ export const getMe = async (req, res, next) => {
     next(error);
   }
 };
-
 export const updateMe = async (req, res, next) => {
   try {
     const {
@@ -676,7 +617,6 @@ export const updateMe = async (req, res, next) => {
     next(error);
   }
 };
-
 /**
  * @desc    Request password reset link
  * @route   POST /api/auth/forgot-password
@@ -736,8 +676,27 @@ export const forgotPassword = async (req, res, next) => {
       // Invalidate the generated token if delivery threw an unhandled network error
       user.passwordResetToken = null;
       user.passwordResetExpires = null;
-      await user.save({ validateBeforeSave: false });
-      return next(new AppError("There was an error sending the password reset email. Please try again later.", 500));
+      await user.save({ validateBeforeSave: false }).catch(() => {});
+
+      // Privately log delivery failure without leaking internal provider error or account existence
+      console.error(`[ForgotPassword] Outbound delivery error (suppressed to prevent account enumeration): ${mailError.message}`);
+
+      logAuditEvent({
+        actor: user._id,
+        actorName: user.fullName,
+        action: "PASSWORD_RESET_DELIVERY_FAILURE",
+        category: "AUTH",
+        target: user._id.toString(),
+        ipAddress: req.ip,
+        severity: "HIGH",
+        details: "Password reset email delivery failed; suppressed from public response to prevent account enumeration.",
+      });
+
+      // Indistinguishable public HTTP 200 response to prevent account enumeration
+      return res.status(200).json({
+        success: true,
+        message: "If an account matches that email, instructions to reset your password have been sent.",
+      });
     }
 
     res.status(200).json({
@@ -749,7 +708,6 @@ export const forgotPassword = async (req, res, next) => {
     next(error);
   }
 };
-
 /**
  * @desc    Reset password using reset token
  * @route   POST /api/auth/reset-password/:token
@@ -801,148 +759,6 @@ export const resetPassword = async (req, res, next) => {
       ipAddress: req.ip,
       severity: "NORMAL",
       details: `Password successfully reset for ${user.email}.`,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Password has been reset successfully. You may now log in with your new password.",
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * @desc    Request password reset via 6-digit Email OTP
- * @route   POST /api/auth/forgot-password-otp
- * @access  Public
- */
-export const forgotPasswordOtp = async (req, res, next) => {
-  try {
-    const { email } = req.body;
-    if (!email || typeof email !== "string" || !email.trim()) {
-      return next(new AppError("Please provide a valid email address.", 400));
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: normalizedEmail });
-
-    // Timing-safe response: Always return identical generic success message even if email not found
-    if (!user) {
-      return res.status(200).json({
-        success: true,
-        message: "If an account matches that email, a verification code has been sent.",
-      });
-    }
-
-    const result = await generateAndSendOtp({
-      target: user.email,
-      targetType: "email",
-      purpose: "password_reset",
-      userName: user.fullName,
-    });
-
-    if (!result.success) {
-      if (result.inCooldown) {
-        return res.status(429).json({
-          success: false,
-          inCooldown: true,
-          remainingSeconds: result.remainingSeconds,
-          message: result.error,
-        });
-      }
-      return next(new AppError(result.error || "Failed to dispatch password recovery code.", 400));
-    }
-
-    logAuditEvent({
-      actor: user._id,
-      actorName: user.fullName,
-      action: "PASSWORD_RESET_OTP_REQUESTED",
-      category: "AUTH",
-      target: user._id.toString(),
-      ipAddress: req.ip,
-      severity: "NORMAL",
-      details: `Password reset OTP requested for ${user.email}.`,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "If an account matches that email, a verification code has been sent.",
-      resendAvailableAt: result.resendAvailableAt,
-      expiresAt: result.expiresAt,
-      ...(process.env.NODE_ENV === "test" ? { testOtp: result.testOtp } : {}),
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * @desc    Reset password using 6-digit Email OTP
- * @route   POST /api/auth/reset-password-otp
- * @access  Public
- */
-export const resetPasswordOtp = async (req, res, next) => {
-  try {
-    const { email, otp, password, confirmPassword } = req.body;
-
-    if (!email || typeof email !== "string") {
-      return next(new AppError("Email address is required.", 400));
-    }
-    if (!otp || typeof otp !== "string" || !/^\d{6}$/.test(otp.trim())) {
-      return next(new AppError("Please provide a valid 6-digit numeric verification code.", 400));
-    }
-    if (!password || typeof password !== "string" || password.length < 8) {
-      return next(new AppError("Password must be at least 8 characters long.", 400));
-    }
-    if (confirmPassword !== undefined && password !== confirmPassword) {
-      return next(new AppError("Password and confirmation do not match.", 400));
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Verify candidate OTP
-    const verifyResult = await verifyOtp({
-      target: normalizedEmail,
-      targetType: "email",
-      purpose: "password_reset",
-      otp: otp.trim(),
-    });
-
-    if (!verifyResult.success) {
-      return res.status(400).json({
-        success: false,
-        errorCode: verifyResult.errorCode,
-        message: verifyResult.error,
-        attemptsRemaining: verifyResult.attemptsRemaining,
-      });
-    }
-
-    const user = await User.findOne({ email: normalizedEmail }).select("+password");
-    if (!user) {
-      return next(new AppError("Account not found.", 404));
-    }
-
-    // Set new password, increment tokenVersion (invalidating existing JWT sessions), and clear tokens
-    user.password = password;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
-    user.passwordChangedAt = new Date();
-    user.tokenVersion = (user.tokenVersion || 0) + 1;
-    await user.save();
-
-    // Invalidate all remaining recovery OTPs for this user
-    await invalidateOtpsForTarget({ target: normalizedEmail, purpose: "password_reset" });
-
-    logAuditEvent({
-      actor: user._id,
-      actorName: user.fullName,
-      action: "PASSWORD_RESET_SUCCESS",
-      category: "AUTH",
-      target: user._id.toString(),
-      ipAddress: req.ip,
-      severity: "NORMAL",
-      details: `Password successfully reset via OTP for ${user.email}.`,
     });
 
     res.status(200).json({

@@ -34,10 +34,8 @@ const testSuites = [
   { name: "Notification Phase 1 Suite", file: "run_notification_phase1_tests.js" },
   { name: "Admin Notification Rate Limit Suite", file: "run_admin_notification_rate_limit_tests.js" },
   { name: "Public Complaints Suite", file: "run_public_complaints_tests.js" },
-  { name: "SMS Removal & Email OTP Suite", file: "run_sms_removal_and_email_otp_tests.js" },
-  { name: "Email OTP Enforcement Suite", file: "run_email_otp_enforcement_tests.js" },
   { name: "Match & 45-Day Cleanup Suite", file: "run_match_and_cleanup_tests.js" },
-  { name: "Resend Email & OTP Failure Recovery", file: "run_resend_and_otp_failure_recovery_tests.js" },
+  { name: "Direct Registration, Password Reset & Match Notifications", file: "run_direct_registration_reset_and_match_tests.js" },
 ];
 
 async function runSingleSuite(suite) {

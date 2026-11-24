@@ -165,8 +165,8 @@ async function runTests() {
     // TEST 3: Email Notifications with Required Subjects
     // ----------------------------------------------------
     const donorEmail = interceptedEmails.find((e) => e.to === testDonor.email);
-    if (donorEmail && donorEmail.subject === 'A compatible blood request has been found near you') {
-      pass('Donor email sent with subject: "A compatible blood request has been found near you"');
+    if (donorEmail && (donorEmail.subject === 'BloodWard – A blood donation match has been found' || donorEmail.subject === 'A compatible blood request has been found near you')) {
+      pass(`Donor email sent with subject: "${donorEmail.subject}"`);
     } else {
       fail('Donor email subject', new Error(`Subject: ${donorEmail?.subject}`));
     }
@@ -185,8 +185,8 @@ async function runTests() {
     }
 
     const recipientEmail = interceptedEmails.find((e) => e.to === testRecipient.email);
-    if (recipientEmail && recipientEmail.subject === 'A potential donor match has been found') {
-      pass('Recipient email sent with subject: "A potential donor match has been found"');
+    if (recipientEmail && (recipientEmail.subject === 'BloodWard – A donor match has been found for your request' || recipientEmail.subject === 'A potential donor match has been found')) {
+      pass(`Recipient email sent with subject: "${recipientEmail.subject}"`);
     } else {
       fail('Recipient email subject', new Error(`Subject: ${recipientEmail?.subject}`));
     }
