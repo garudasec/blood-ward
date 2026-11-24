@@ -68,6 +68,7 @@ export default function DonorDispatchMap({
   isDonorAvailable = true,
 }) {
   const [activeRequest, setActiveRequest] = useState(null);
+  const [tileError, setTileError] = useState(false);
 
   const mapCenter =
     Array.isArray(donorLocation) &&
@@ -78,22 +79,29 @@ export default function DonorDispatchMap({
       : [28.6139, 77.2090];
 
   return (
-    <div className="relative w-full h-[580px] rounded-2xl overflow-hidden border border-[#E2E8F0] shadow-xs bg-[#F8FAFC] flex flex-col">
+    <div className="relative w-full h-[580px] rounded-2xl overflow-hidden border border-[#E2E8F0] dark:border-[#343B47] shadow-xs bg-[#F8FAFC] dark:bg-[#181B21] flex flex-col">
       {/* Top Map Operational Status Banner */}
-      <div className="absolute top-3 left-3 right-3 z-[400] bg-white/95 backdrop-blur-xs text-[#1E293B] px-3.5 py-2 rounded-xl text-xs flex flex-wrap items-center justify-between gap-2 shadow-xs border border-[#E2E8F0] font-mono">
+      <div className="absolute top-3 left-3 right-3 z-[400] bg-white/95 dark:bg-[#181B21]/95 backdrop-blur-xs text-[#1E293B] dark:text-[#F1F5F9] px-3.5 py-2 rounded-xl text-xs flex flex-wrap items-center justify-between gap-2 shadow-xs border border-[#E2E8F0] dark:border-[#343B47] font-mono">
         <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-[#A61B2B] shrink-0" />
-          <span className="font-bold text-[#1E293B] text-[11px] sm:text-xs">
+          <Activity className="w-4 h-4 text-[#A61B2B] dark:text-rose-400 shrink-0" />
+          <span className="font-bold text-[#1E293B] dark:text-white text-[11px] sm:text-xs">
             LIVE DISPATCH RADAR // {requests.length} MATCHING REQUISITIONS
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-[11px] text-[#64748B]">
-          <span className="flex items-center gap-1 font-semibold text-[#28734A]">
-            <span className="w-2 h-2 rounded-full bg-[#28734A] animate-pulse" />
-            SOCKET.IO REAL-TIME
-          </span>
-          <span className="hidden sm:inline font-medium text-[#475569]">
+        <div className="flex items-center gap-3 text-[11px] text-[#64748B] dark:text-[#94A3B8]">
+          {tileError ? (
+            <span className="flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
+              <AlertCircle className="w-3.5 h-3.5" />
+              TILE NETWORK DEGRADED
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 font-semibold text-[#28734A] dark:text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-[#28734A] dark:bg-emerald-400 animate-pulse" />
+              SOCKET.IO REAL-TIME
+            </span>
+          )}
+          <span className="hidden sm:inline font-medium text-[#475569] dark:text-[#CBD5E1]">
             BASE: {donorProfile?.city || "Profile Location"}
           </span>
         </div>
@@ -107,11 +115,16 @@ export default function DonorDispatchMap({
       >
         <MapViewUpdater center={mapCenter} zoom={11} />
 
-        {/* Standard OpenStreetMap Tile Layer (Publicly Accessible, No API Key Required) */}
+        {/* Standard OpenStreetMap Tile Layer (Publicly Accessible, Standard Attribution) */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          subdomains={['a', 'b', 'c']}
           maxZoom={19}
+          eventHandlers={{
+            tileerror: () => setTileError(true),
+            tileload: () => setTileError(false),
+          }}
         />
 
         {/* Donor Base Pin */}

@@ -50,6 +50,7 @@ export default function AppRoutes() {
           <Route path="login" element={<LoginPage />} />
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
           <Route path="reset-password/:token" element={<ResetPasswordPage />} />
+          <Route path="reset-password" element={<ResetPasswordPage />} />
           <Route path="register" element={<RegisterRoleSelectPage />} />
           <Route path="get-started" element={<Navigate to="/register" replace />} />
           <Route path="register/donor" element={<DonorRegisterPage />} />

@@ -1,5 +1,6 @@
 import { isBloodCompatible } from "./utils/bloodCompatibility.js";
 import { DEFAULT_MATCHING_RADIUS_KM } from './config/constants.js';
+import { validateDonorDOB } from './utils/validators.js';
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import User from "./models/user.model.js";
@@ -156,6 +157,14 @@ export const notifyMatchingDonors = async (bloodRequest, newlyEligibleOnly = fal
         continue;
       }
 
+      // Check donor DOB validity (prevent notifying under-age donors or donors with invalid DOB)
+      if (donor.dateOfBirth) {
+        const dobValidation = validateDonorDOB(donor.dateOfBirth);
+        if (!dobValidation.isValid) {
+          continue;
+        }
+      }
+
       // Check blood group compatibility
       if (!isBloodCompatible(donor.bloodGroup, bloodRequest.bloodGroup)) {
         continue;
@@ -199,7 +208,7 @@ export const notifyMatchingDonors = async (bloodRequest, newlyEligibleOnly = fal
           emitToUser(donor._id, "bloodRequest:radius_expanded", privacySafePayload);
           emitToUser(donor._id, "request:radius_expanded", privacySafePayload);
         }
-        if (bloodRequest.urgency === "Emergency") {
+        if (bloodRequest.urgency === "Emergency" || bloodRequest.urgency === "High") {
           emitToUser(donor._id, "bloodRequest:emergency", privacySafePayload);
         }
       }

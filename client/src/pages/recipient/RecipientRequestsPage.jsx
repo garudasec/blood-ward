@@ -37,6 +37,10 @@ export default function RecipientRequestsPage() {
       const res = await requestService.getMyRequests(params);
       if (res && res.requests) {
         setRequests(res.requests);
+        setSelectedRequestForModal((prev) => {
+          if (!prev) return null;
+          return res.requests.find((r) => r.id === prev.id) || prev;
+        });
       }
     } catch (err) {
       setErrorMsg(err.message || "Failed to load recipient blood requests.");

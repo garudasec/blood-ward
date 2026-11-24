@@ -60,8 +60,10 @@ export const getEmailTransporter = () => {
 
 /**
  * Dispatches a password reset email to the recipient.
- * Routes through the notification manager if configured in database,
- * or seamlessly falls back to default environment SMTP settings.
+ * Reuses notificationManager to coordinate delivery across:
+ * 1. Database-configured providers (Resend HTTPS API or SMTP with priority/quota tracking)
+ * 2. Environment-based Resend API fallback (RESEND_API_KEY, RESEND_FROM, RESEND_SENDER_NAME)
+ * 3. Default environment SMTP fallback (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)
  *
  * @param {Object} options
  * @param {string} options.to Recipient email address
@@ -85,64 +87,35 @@ export const sendPasswordResetEmail = async ({ to, userName, resetUrl }) => {
     </div>
   `;
 
-  // 1. Check if database email providers are available
-  try {
-    const hasDbEmailProvider = await NotificationProvider.exists({
-      providerType: 'email',
-      isEnabled: true,
-      isHealthy: true,
-    });
+  // Delegate dispatch to notificationManager to reuse complete failover:
+  // 1. Database providers (Resend or SMTP with priority and quota tracking)
+  // 2. Environment Resend fallback (RESEND_API_KEY, RESEND_FROM, RESEND_SENDER_NAME)
+  // 3. Default environment SMTP fallback (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)
+  const result = await notificationManager.sendEmail({
+    to,
+    subject,
+    text: textBody,
+    html: htmlBody,
+    purpose: 'password_reset',
+    metadata: { userName },
+  });
 
-    if (hasDbEmailProvider) {
-      const result = await notificationManager.sendEmail({
-        to,
-        subject,
-        text: textBody,
-        html: htmlBody,
-        purpose: 'password_reset',
-        metadata: { userName },
-      });
-
-      if (result.success) {
-        return {
-          sent: true,
-          messageId: result.messageId,
-          providerName: result.providerName,
-        };
-      }
-    }
-  } catch (dbErr) {
-    // If DB check fails, continue to environment fallback
-  }
-
-  // 2. Fallback to environment variables
-  if (!isEmailConfigured()) {
-    return {
-      sent: false,
-      reason: 'SMTP configuration missing in environment variables (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)',
-    };
-  }
-
-  try {
-    const transporter = getEmailTransporter();
-    const fromAddress = process.env.EMAIL_FROM || 'BloodWard Security <no-reply@bloodward.com>';
-
-    const info = await transporter.sendMail({
-      from: fromAddress,
-      to,
-      subject,
-      text: textBody,
-      html: htmlBody,
-    });
-
+  if (result && result.success) {
     return {
       sent: true,
-      messageId: info.messageId,
-    };
-  } catch (err) {
-    return {
-      sent: false,
-      reason: `Email transport failed: ${err.message}`,
+      messageId: result.messageId,
+      providerName: result.providerName,
     };
   }
+
+  // If no email delivery channel is configured in environment or database
+  if (result && result.errorCode === 'NO_EMAIL_PROVIDER_CONFIGURED') {
+    return {
+      sent: false,
+      reason: result.error || 'No email delivery provider or environment fallback configured.',
+    };
+  }
+
+  // Any delivery failure throws so callers (e.g. authController) can nullify token and log privately
+  throw new Error(result?.error || 'Failed to dispatch password reset email.');
 };

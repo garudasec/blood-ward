@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import Hospital from "../models/hospital.model.js";
@@ -6,15 +7,8 @@ import AppError from "../utils/appError.js";
 import { logAuditEvent } from "../utils/auditLogger.js";
 import { generateHospitalId } from "../utils/idGenerator.js";
 import { ALLOWED_GENDERS, isValidPincode, normalizeIndianPhone, validateDonorDOB } from "../utils/validators.js";
-import { sendPasswordResetEmail, isEmailConfigured } from "../utils/emailService.js";
-import Otp from "../models/otp.model.js";
-import {
-  generateAndSendOtp,
-  verifyOtp,
-  invalidateOtpsForTarget,
-  isRegistrationOtpVerified,
-  consumeRegistrationOtp,
-} from "../services/otpService.js";
+import { sendPasswordResetEmail } from "../utils/emailService.js";
+import { notifyAdminsOfNewDonor, notifyAdminsOfNewRecipient } from "../services/adminNotificationService.js";
 
 const signToken = (id, role, tokenVersion = 0) => {
   const secret = process.env.JWT_SECRET;
@@ -138,26 +132,9 @@ export const registerDonor = async (req, res, next) => {
       pincode: pincode ? pincode.trim() : "",
       dateOfBirth: dateOfBirth ? String(dateOfBirth).trim() : "",
       availability: donorAvailability,
+      isEmailVerified: false,
+      emailVerifiedAt: null,
     };
-
-    // Check if email was verified via OTP in the last 30 minutes and not yet consumed
-    const emailVerified = await isRegistrationOtpVerified({
-      target: normalizedEmail,
-      targetType: "email",
-      purpose: "verification",
-    });
-
-    if (!emailVerified) {
-      return next(
-        new AppError(
-          "Email verification is mandatory. Please verify your email with the 6-digit verification code before registering.",
-          400
-        )
-      );
-    }
-
-    donorData.isEmailVerified = true;
-    donorData.emailVerifiedAt = new Date();
 
     if (healthQuestionnaire && typeof healthQuestionnaire === "object") {
       donorData.healthQuestionnaire = {
@@ -175,14 +152,6 @@ export const registerDonor = async (req, res, next) => {
 
     const newUser = await User.create(donorData);
 
-    // Atomically consume verified OTP records upon successful user creation
-    await consumeRegistrationOtp({
-      target: normalizedEmail,
-      targetType: "email",
-      purpose: "verification",
-      userId: newUser._id,
-    });
-
     logAuditEvent({
       actor: newUser._id,
       actorName: newUser.fullName,
@@ -191,6 +160,10 @@ export const registerDonor = async (req, res, next) => {
       target: newUser._id.toString(),
       ipAddress: req.ip,
       severity: "NORMAL",
+    });
+
+    notifyAdminsOfNewDonor(newUser).catch((err) => {
+      console.warn("[AuthController] Admin notification error on donor registration:", err.message);
     });
 
     sendTokenResponse(newUser, 201, res, "Donor registration successful.");
@@ -277,22 +250,6 @@ export const registerRecipient = async (req, res, next) => {
       linkedHospitalId = existingHospital._id;
     }
 
-    // Check if email was verified via OTP in the last 30 minutes and not yet consumed
-    const emailVerified = await isRegistrationOtpVerified({
-      target: normalizedEmail,
-      targetType: "email",
-      purpose: "verification",
-    });
-
-    if (!emailVerified) {
-      return next(
-        new AppError(
-          "Email verification is mandatory. Please verify your email with the 6-digit verification code before registering.",
-          400
-        )
-      );
-    }
-
     const newUser = await User.create({
       fullName: fullName.trim(),
       email: normalizedEmail,
@@ -312,16 +269,8 @@ export const registerRecipient = async (req, res, next) => {
       verificationStatus: isHospitalRep ? "pending" : "verified",
       isPhoneVerified: false,
       phoneVerifiedAt: null,
-      isEmailVerified: true,
-      emailVerifiedAt: new Date(),
-    });
-
-    // Atomically consume verified OTP records upon successful user creation
-    await consumeRegistrationOtp({
-      target: normalizedEmail,
-      targetType: "email",
-      purpose: "verification",
-      userId: newUser._id,
+      isEmailVerified: false,
+      emailVerifiedAt: null,
     });
 
     logAuditEvent({
@@ -333,6 +282,10 @@ export const registerRecipient = async (req, res, next) => {
       ipAddress: req.ip,
       severity: "NORMAL",
       details: isHospitalRep ? `Hospital representative registered for ${hospitalName.trim()} (Pending Verification).` : "Individual recipient registered.",
+    });
+
+    notifyAdminsOfNewRecipient(newUser, isHospitalRep, isHospitalRep ? hospitalName.trim() : "").catch((err) => {
+      console.warn("[AuthController] Admin notification error on recipient registration:", err.message);
     });
 
     sendTokenResponse(newUser, 201, res, isHospitalRep ? "Hospital representative registration submitted. Account is pending verification." : "Recipient registration successful.");
@@ -416,7 +369,6 @@ export const login = async (req, res, next) => {
     next(error);
   }
 };
-
 export const logout = async (req, res) => {
   res.cookie("token", "logout", {
     httpOnly: true,
@@ -548,7 +500,6 @@ export const getMe = async (req, res, next) => {
     next(error);
   }
 };
-
 export const updateMe = async (req, res, next) => {
   try {
     const {
@@ -676,7 +627,6 @@ export const updateMe = async (req, res, next) => {
     next(error);
   }
 };
-
 /**
  * @desc    Request password reset link
  * @route   POST /api/auth/forgot-password
@@ -689,29 +639,38 @@ export const forgotPassword = async (req, res, next) => {
       return next(new AppError("Please provide a valid email address.", 400));
     }
 
+    // Always perform cryptographic token and hash generation to equalize computational workload
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
     const normalizedEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
 
-    // Timing-safe response: Always return identical generic success message even if email not found
+    // Timing-safe response: simulate DB write + processing latency to prevent account enumeration
     if (!user) {
+      const jitterMs = process.env.NODE_ENV === "test" ? 15 + (crypto.randomBytes(1)[0] % 15) : 70 + (crypto.randomBytes(1)[0] % 40);
+      await new Promise((resolve) => setTimeout(resolve, jitterMs));
+
       return res.status(200).json({
         success: true,
         message: "If an account matches that email, instructions to reset your password have been sent.",
       });
     }
 
-    // Generate random 32-byte token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    // Store SHA-256 hash in database
-    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
-
     // Token expires in 15 minutes
     user.passwordResetToken = hashedToken;
     user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
-    // Fully qualified reset URL sent strictly via email transport
-    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    // Enforce HTTPS for production CLIENT_URL
+    let clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    if (process.env.NODE_ENV === "production") {
+      if (clientUrl.startsWith("http://")) {
+        clientUrl = clientUrl.replace(/^http:\/\//i, "https://");
+      } else if (!clientUrl.startsWith("https://")) {
+        clientUrl = `https://${clientUrl}`;
+      }
+    }
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     logAuditEvent({
@@ -736,10 +695,33 @@ export const forgotPassword = async (req, res, next) => {
       // Invalidate the generated token if delivery threw an unhandled network error
       user.passwordResetToken = null;
       user.passwordResetExpires = null;
-      await user.save({ validateBeforeSave: false });
-      return next(new AppError("There was an error sending the password reset email. Please try again later.", 500));
+      await user.save({ validateBeforeSave: false }).catch(() => { });
+
+      // Privately log delivery failure without leaking internal provider error or account existence
+      console.error(`[ForgotPassword] Outbound delivery error (suppressed to prevent account enumeration): ${mailError.message}`);
+
+      logAuditEvent({
+        actor: user._id,
+        actorName: user.fullName,
+        action: "PASSWORD_RESET_DELIVERY_FAILURE",
+        category: "AUTH",
+        target: user._id.toString(),
+        ipAddress: req.ip,
+        severity: "HIGH",
+        details: "Password reset email delivery failed; suppressed from public response to prevent account enumeration.",
+      });
+
+      // Indistinguishable public HTTP 200 response to prevent account enumeration
+      res.set("Referrer-Policy", "no-referrer");
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+      return res.status(200).json({
+        success: true,
+        message: "If an account matches that email, instructions to reset your password have been sent.",
+      });
     }
 
+    res.set("Referrer-Policy", "no-referrer");
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.status(200).json({
       success: true,
       message: "If an account matches that email, instructions to reset your password have been sent.",
@@ -749,7 +731,6 @@ export const forgotPassword = async (req, res, next) => {
     next(error);
   }
 };
-
 /**
  * @desc    Reset password using reset token
  * @route   POST /api/auth/reset-password/:token
@@ -775,22 +756,34 @@ export const resetPassword = async (req, res, next) => {
     // Hash the token from parameter to find matching user
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
-    const user = await User.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: Date.now() },
-    }).select("+password");
+    // Concurrency-safe atomic token consumption:
+    // Pre-hash password with bcrypt to maintain matching salt/cost
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Atomically find user matching valid unexpired token and consume token in one operation
+    const user = await User.findOneAndUpdate(
+      {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: { $gt: Date.now() },
+      },
+      {
+        $set: {
+          password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpires: null,
+          passwordChangedAt: new Date(),
+        },
+        $inc: {
+          tokenVersion: 1,
+        },
+      },
+      { returnDocument: "after", runValidators: true }
+    );
 
     if (!user) {
       return next(new AppError("Password reset token is invalid or has expired.", 400));
     }
-
-    // Set new password and invalidate prior sessions
-    user.password = password;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
-    user.passwordChangedAt = new Date();
-    user.tokenVersion = (user.tokenVersion || 0) + 1;
-    await user.save();
 
     logAuditEvent({
       actor: user._id,
@@ -803,147 +796,8 @@ export const resetPassword = async (req, res, next) => {
       details: `Password successfully reset for ${user.email}.`,
     });
 
-    res.status(200).json({
-      success: true,
-      message: "Password has been reset successfully. You may now log in with your new password.",
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * @desc    Request password reset via 6-digit Email OTP
- * @route   POST /api/auth/forgot-password-otp
- * @access  Public
- */
-export const forgotPasswordOtp = async (req, res, next) => {
-  try {
-    const { email } = req.body;
-    if (!email || typeof email !== "string" || !email.trim()) {
-      return next(new AppError("Please provide a valid email address.", 400));
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: normalizedEmail });
-
-    // Timing-safe response: Always return identical generic success message even if email not found
-    if (!user) {
-      return res.status(200).json({
-        success: true,
-        message: "If an account matches that email, a verification code has been sent.",
-      });
-    }
-
-    const result = await generateAndSendOtp({
-      target: user.email,
-      targetType: "email",
-      purpose: "password_reset",
-      userName: user.fullName,
-    });
-
-    if (!result.success) {
-      if (result.inCooldown) {
-        return res.status(429).json({
-          success: false,
-          inCooldown: true,
-          remainingSeconds: result.remainingSeconds,
-          message: result.error,
-        });
-      }
-      return next(new AppError(result.error || "Failed to dispatch password recovery code.", 400));
-    }
-
-    logAuditEvent({
-      actor: user._id,
-      actorName: user.fullName,
-      action: "PASSWORD_RESET_OTP_REQUESTED",
-      category: "AUTH",
-      target: user._id.toString(),
-      ipAddress: req.ip,
-      severity: "NORMAL",
-      details: `Password reset OTP requested for ${user.email}.`,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "If an account matches that email, a verification code has been sent.",
-      resendAvailableAt: result.resendAvailableAt,
-      expiresAt: result.expiresAt,
-      ...(process.env.NODE_ENV === "test" ? { testOtp: result.testOtp } : {}),
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * @desc    Reset password using 6-digit Email OTP
- * @route   POST /api/auth/reset-password-otp
- * @access  Public
- */
-export const resetPasswordOtp = async (req, res, next) => {
-  try {
-    const { email, otp, password, confirmPassword } = req.body;
-
-    if (!email || typeof email !== "string") {
-      return next(new AppError("Email address is required.", 400));
-    }
-    if (!otp || typeof otp !== "string" || !/^\d{6}$/.test(otp.trim())) {
-      return next(new AppError("Please provide a valid 6-digit numeric verification code.", 400));
-    }
-    if (!password || typeof password !== "string" || password.length < 8) {
-      return next(new AppError("Password must be at least 8 characters long.", 400));
-    }
-    if (confirmPassword !== undefined && password !== confirmPassword) {
-      return next(new AppError("Password and confirmation do not match.", 400));
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Verify candidate OTP
-    const verifyResult = await verifyOtp({
-      target: normalizedEmail,
-      targetType: "email",
-      purpose: "password_reset",
-      otp: otp.trim(),
-    });
-
-    if (!verifyResult.success) {
-      return res.status(400).json({
-        success: false,
-        errorCode: verifyResult.errorCode,
-        message: verifyResult.error,
-        attemptsRemaining: verifyResult.attemptsRemaining,
-      });
-    }
-
-    const user = await User.findOne({ email: normalizedEmail }).select("+password");
-    if (!user) {
-      return next(new AppError("Account not found.", 404));
-    }
-
-    // Set new password, increment tokenVersion (invalidating existing JWT sessions), and clear tokens
-    user.password = password;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
-    user.passwordChangedAt = new Date();
-    user.tokenVersion = (user.tokenVersion || 0) + 1;
-    await user.save();
-
-    // Invalidate all remaining recovery OTPs for this user
-    await invalidateOtpsForTarget({ target: normalizedEmail, purpose: "password_reset" });
-
-    logAuditEvent({
-      actor: user._id,
-      actorName: user.fullName,
-      action: "PASSWORD_RESET_SUCCESS",
-      category: "AUTH",
-      target: user._id.toString(),
-      ipAddress: req.ip,
-      severity: "NORMAL",
-      details: `Password successfully reset via OTP for ${user.email}.`,
-    });
+    res.set("Referrer-Policy", "no-referrer");
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
 
     res.status(200).json({
       success: true,

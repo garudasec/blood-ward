@@ -27,7 +27,6 @@ import Select from "../../components/common/Select";
 import Button from "../../components/common/Button";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
-import EmailVerificationSection from "../../components/auth/EmailVerificationSection";
 import { BLOOD_GROUPS, GENDER_OPTIONS } from "../../constants/theme";
 import { INDIA_STATES_AND_CITIES, INDIAN_STATES_LIST } from "../../constants/indiaLocations";
 
@@ -84,18 +83,9 @@ export default function DonorRegisterPage() {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [serverNotice, setServerNotice] = useState("");
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [verifiedEmail, setVerifiedEmail] = useState("");
 
   const handleChange = (e) => {
     const { id, value, type, checked } = e.target;
-
-    if (id === "email") {
-      if (isEmailVerified || verifiedEmail) {
-        setIsEmailVerified(false);
-        setVerifiedEmail("");
-      }
-    }
 
     if (id === "phone") {
       const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
@@ -130,8 +120,6 @@ export default function DonorRegisterPage() {
         newErrors.email = "Email address is required";
       } else if (!/\S+@\S+\.\S+/.test(cleanEmail)) {
         newErrors.email = "Enter a valid email address";
-      } else if (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase()) {
-        newErrors.email = "Email verification is mandatory. Please verify your email with the 6-digit verification code before proceeding.";
       }
 
       if (!formData.password) {
@@ -207,15 +195,6 @@ export default function DonorRegisterPage() {
 
   const handleNext = (e) => {
     if (e) e.preventDefault();
-    const cleanEmail = formData.email.trim().toLowerCase();
-    if (currentStage === 1 && (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase())) {
-      setErrors((prev) => ({
-        ...prev,
-        email: "Email verification is mandatory. Please verify your email before proceeding to the next step.",
-      }));
-      setServerNotice("Email verification is mandatory. Please verify your email with the 6-digit OTP code before proceeding to the next step.");
-      return;
-    }
     if (validateStage(currentStage)) {
       setServerNotice("");
       setCurrentStage((prev) => Math.min(prev + 1, 5));
@@ -239,14 +218,6 @@ export default function DonorRegisterPage() {
     } else if (targetStage === currentStage) {
       // already on current stage
     } else {
-      // Email verification is mandatory before proceeding beyond stage 1
-      const cleanEmail = formData.email.trim().toLowerCase();
-      if (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase()) {
-        setServerNotice("Email verification is mandatory. Please verify your email before proceeding to subsequent registration steps.");
-        setCurrentStage(1);
-        return;
-      }
-
       // verify preceding stages before allowing forward jump
       let canAdvance = true;
       for (let s = 1; s < targetStage; s++) {
@@ -266,13 +237,6 @@ export default function DonorRegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const cleanEmail = formData.email.trim().toLowerCase();
-    if (!isEmailVerified || !verifiedEmail || cleanEmail !== verifiedEmail.toLowerCase()) {
-      setServerNotice("Email verification is mandatory. Please verify your email before submitting registration.");
-      setCurrentStage(1);
-      return;
-    }
-
     if (!validateForm()) {
       setServerNotice("Please resolve the highlighted validation errors before submitting.");
       // Navigate to the first stage with errors
@@ -543,14 +507,6 @@ export default function DonorRegisterPage() {
                       icon={Mail}
                       required
                     />
-                    <EmailVerificationSection
-                      email={formData.email}
-                      isVerified={isEmailVerified}
-                      setIsVerified={setIsEmailVerified}
-                      verifiedEmail={verifiedEmail}
-                      setVerifiedEmail={setVerifiedEmail}
-                      accentColor="blood"
-                    />
                   </div>
                 </div>
 
@@ -620,30 +576,16 @@ export default function DonorRegisterPage() {
                 </div>
 
                 {/* Navigation Button */}
-                <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-[#E2E8F0] dark:border-zinc-800">
-                  {!isEmailVerified ? (
-                    <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 font-medium">
-                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
-                      <span>Email verification is required to unlock the next step</span>
-                    </div>
-                  ) : (
-                    <div className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-medium">
-                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
-                      <span>Email verified &mdash; click next to proceed</span>
-                    </div>
-                  )}
-                  <div className="sm:ml-auto">
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={handleNext}
-                      disabled={!isEmailVerified || !verifiedEmail || formData.email.trim().toLowerCase() !== verifiedEmail.toLowerCase()}
-                      className="w-full sm:w-auto font-semibold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span>Next: Blood Group & Location</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
+                <div className="pt-4 flex items-center justify-end border-t border-[#E2E8F0] dark:border-zinc-800">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={handleNext}
+                    className="w-full sm:w-auto font-semibold text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <span>Next: Blood Group & Location</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
               </div>
             )}

@@ -77,22 +77,6 @@ const matchSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
-    donorEmailSent: {
-      type: Boolean,
-      default: false,
-    },
-    recipientEmailSent: {
-      type: Boolean,
-      default: false,
-    },
-    acceptanceEmailSent: {
-      type: Boolean,
-      default: false,
-    },
-    completionEmailSent: {
-      type: Boolean,
-      default: false,
-    },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: () => ({}),
