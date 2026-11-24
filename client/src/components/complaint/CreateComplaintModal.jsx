@@ -3,6 +3,7 @@ import { X, ShieldAlert, AlertCircle, CheckCircle2, FileText, Link as LinkIcon }
 import Input from '../common/Input';
 import Select from '../common/Select';
 import Button from '../common/Button';
+import { useAuth } from '../../context/AuthContext';
 import { complaintService } from '../../services/complaintService';
 
 const COMPLAINT_CATEGORIES = [
@@ -21,14 +22,18 @@ export default function CreateComplaintModal({
   patient,
   onComplaintSubmitted,
 }) {
-  const [category, setCategory] = useState('');
-  const [complainantType, setComplainantType] = useState('patient');
+  const { user } = useAuth();
+  const isDonor = user?.role === 'donor';
+
+  const [category, setCategory] = useState(isDonor ? 'Hospital did not respond after donor acceptance' : '');
+  const [complainantType, setComplainantType] = useState(isDonor ? 'donor' : 'patient');
   const [familyRelationship, setFamilyRelationship] = useState('');
   const [description, setDescription] = useState('');
   const [evidenceUrl, setEvidenceUrl] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [submittedComplaintId, setSubmittedComplaintId] = useState('');
 
   if (!isOpen || !bloodRequest) return null;
 
@@ -65,11 +70,13 @@ export default function CreateComplaintModal({
       };
 
       const response = await complaintService.submitComplaint(payload);
+      const refId = response.complaintId || response.complaint?.complaintId || '';
+      setSubmittedComplaintId(refId);
       setSuccessMessage(response.message || 'Complaint submitted successfully and logged for administrative investigation.');
       setTimeout(() => {
         if (onComplaintSubmitted) onComplaintSubmitted(response.complaint);
         onClose();
-      }, 1800);
+      }, 3000);
     } catch (err) {
       setError(err.message || 'Failed to submit complaint. Verify your details and try again.');
     } finally {
@@ -108,54 +115,66 @@ export default function CreateComplaintModal({
         )}
 
         {successMessage ? (
-          <div className="p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 rounded-xl text-center space-y-2">
+          <div className="p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 rounded-xl text-center space-y-3">
             <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400 mx-auto" />
             <div className="text-xs font-semibold text-green-800 dark:text-green-300">
               {successMessage}
             </div>
+            {submittedComplaintId && (
+              <div className="p-2.5 rounded-lg bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-800 text-xs">
+                <span className="text-[10px] uppercase font-bold text-zinc-500 block">Complaint Reference ID</span>
+                <span className="font-mono font-bold text-[#A61B2B] dark:text-rose-400 text-sm">{submittedComplaintId}</span>
+              </div>
+            )}
             <p className="text-[11px] text-green-700 dark:text-green-400">
               An administrator will review the evidence and hospital response. Your complaint status is independent of the blood request status.
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <label
-                className={`p-2.5 rounded-xl border text-center font-medium cursor-pointer transition-colors ${
-                  complainantType === 'patient'
-                    ? 'border-[#A61B2B] bg-red-50/50 dark:bg-red-950/20 text-[#A61B2B] dark:text-red-300'
-                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="complainantType"
-                  value="patient"
-                  checked={complainantType === 'patient'}
-                  onChange={() => setComplainantType('patient')}
-                  className="sr-only"
-                />
-                Primary Patient
-              </label>
+            {isDonor ? (
+              <div className="p-2.5 rounded-xl border border-[#A61B2B] bg-red-50/50 dark:bg-red-950/20 text-[#A61B2B] dark:text-red-300 text-xs font-semibold text-center">
+                Submitting as Voluntary Donor
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <label
+                  className={`p-2.5 rounded-xl border text-center font-medium cursor-pointer transition-colors ${
+                    complainantType === 'patient'
+                      ? 'border-[#A61B2B] bg-red-50/50 dark:bg-red-950/20 text-[#A61B2B] dark:text-red-300'
+                      : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="complainantType"
+                    value="patient"
+                    checked={complainantType === 'patient'}
+                    onChange={() => setComplainantType('patient')}
+                    className="sr-only"
+                  />
+                  Primary Patient
+                </label>
 
-              <label
-                className={`p-2.5 rounded-xl border text-center font-medium cursor-pointer transition-colors ${
-                  complainantType === 'family_member'
-                    ? 'border-[#A61B2B] bg-red-50/50 dark:bg-red-950/20 text-[#A61B2B] dark:text-red-300'
-                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="complainantType"
-                  value="family_member"
-                  checked={complainantType === 'family_member'}
-                  onChange={() => setComplainantType('family_member')}
-                  className="sr-only"
-                />
-                Authorized Family Member
-              </label>
-            </div>
+                <label
+                  className={`p-2.5 rounded-xl border text-center font-medium cursor-pointer transition-colors ${
+                    complainantType === 'family_member'
+                      ? 'border-[#A61B2B] bg-red-50/50 dark:bg-red-950/20 text-[#A61B2B] dark:text-red-300'
+                      : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="complainantType"
+                    value="family_member"
+                    checked={complainantType === 'family_member'}
+                    onChange={() => setComplainantType('family_member')}
+                    className="sr-only"
+                  />
+                  Authorized Family Member
+                </label>
+              </div>
+            )}
 
             {complainantType === 'family_member' && (
               <Input

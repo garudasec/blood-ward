@@ -1,8 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ShieldCheck, MapPin, Eye, CheckCircle2, XCircle } from "lucide-react";
+import { ShieldCheck, MapPin, Eye, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import BloodGroupBadge from "../common/BloodGroupBadge";
 
 // Recipient Search Center Marker Icon (Enterprise Healthcare)
@@ -77,6 +77,8 @@ export default function DonorSearchMap({
   selectedDonorId = null,
   onRadiusChange,
 }) {
+  const [tileError, setTileError] = useState(false);
+
   const mapCenter =
     Array.isArray(center) && center.length === 2 && !isNaN(center[0]) && !isNaN(center[1])
       ? center
@@ -86,20 +88,26 @@ export default function DonorSearchMap({
   const radiusPresets = [5, 10, 20, 30, 50];
 
   return (
-    <div className="relative w-full h-[580px] rounded-2xl overflow-hidden border border-[#E2E8F0] shadow-xs bg-[#F8FAFC] flex flex-col">
+    <div className="relative w-full h-[580px] rounded-2xl overflow-hidden border border-[#E2E8F0] dark:border-[#343B47] shadow-xs bg-[#F8FAFC] dark:bg-[#181B21] flex flex-col">
       {/* Top Map Control Bar */}
-      <div className="absolute top-3 left-3 right-3 z-[400] bg-white/95 backdrop-blur-xs text-[#1E293B] px-3.5 py-2 rounded-xl text-xs flex flex-wrap items-center justify-between gap-2 shadow-xs border border-[#E2E8F0]">
+      <div className="absolute top-3 left-3 right-3 z-[400] bg-white/95 dark:bg-[#181B21]/95 backdrop-blur-xs text-[#1E293B] dark:text-[#F1F5F9] px-3.5 py-2 rounded-xl text-xs flex flex-wrap items-center justify-between gap-2 shadow-xs border border-[#E2E8F0] dark:border-[#343B47]">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-[#28734A] shrink-0" />
-          <span className="font-medium text-[#475569] text-[11px] sm:text-xs">
+          <ShieldCheck className="w-4 h-4 text-[#28734A] dark:text-emerald-400 shrink-0" />
+          <span className="font-medium text-[#475569] dark:text-[#CBD5E1] text-[11px] sm:text-xs">
             Donor locations are coarsened (~500m centroid offset). Exact street addresses remain protected.
           </span>
+          {tileError && (
+            <span className="flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400 font-mono text-[10px]">
+              <AlertCircle className="w-3 h-3" />
+              TILE DEGRADED
+            </span>
+          )}
         </div>
 
         {/* Inline Radius Preset Selector on Map */}
         {onRadiusChange && (
           <div className="flex items-center gap-1 font-mono text-xs">
-            <span className="text-[10px] text-[#64748B] uppercase font-bold mr-1">Radius:</span>
+            <span className="text-[10px] text-[#64748B] dark:text-[#94A3B8] uppercase font-bold mr-1">Radius:</span>
             {radiusPresets.map((r) => (
               <button
                 key={r}
@@ -108,7 +116,7 @@ export default function DonorSearchMap({
                 className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-all cursor-pointer ${
                   radiusKm === r
                     ? "bg-[#315B83] text-white border-[#315B83]"
-                    : "bg-white hover:bg-[#F8FAFC] text-[#1E293B] border-[#E2E8F0]"
+                    : "bg-white dark:bg-[#20242C] hover:bg-[#F8FAFC] dark:hover:bg-[#252A33] text-[#1E293B] dark:text-[#F1F5F9] border-[#E2E8F0] dark:border-[#343B47]"
                 }`}
               >
                 {r}k
@@ -129,11 +137,16 @@ export default function DonorSearchMap({
           zoom={radiusKm <= 10 ? 12 : radiusKm <= 20 ? 11 : radiusKm <= 30 ? 10 : 9}
         />
 
-        {/* Standard OpenStreetMap Tile Layer (Publicly Accessible, No API Key Required) */}
+        {/* Standard OpenStreetMap Tile Layer (Publicly Accessible, Standard Attribution) */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          subdomains={['a', 'b', 'c']}
           maxZoom={19}
+          eventHandlers={{
+            tileerror: () => setTileError(true),
+            tileload: () => setTileError(false),
+          }}
         />
 
         {/* Recipient Center Marker */}

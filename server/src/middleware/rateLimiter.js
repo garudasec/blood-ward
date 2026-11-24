@@ -27,32 +27,6 @@ export const forgotPasswordLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test',
 });
 
-// Dedicated OTP Request Limiter: Maximum 10 OTP dispatches per IP per 15 minutes
-export const otpRequestLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many OTP requests from this IP. Please try again after 15 minutes.',
-  },
-  skip: () => process.env.NODE_ENV === 'test',
-});
-
-// Dedicated OTP Verification Limiter: Maximum 20 verification attempts per IP per 15 minutes
-export const otpVerifyLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many OTP verification attempts from this IP. Please try again after 15 minutes.',
-  },
-  skip: () => process.env.NODE_ENV === 'test',
-});
-
 // Dedicated Public Complaint Limiter: Maximum 10 submissions per IP per 15 minutes
 export const publicComplaintLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

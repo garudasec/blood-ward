@@ -6,6 +6,7 @@ import User from '../models/user.model.js';
 import AppError from '../utils/appError.js';
 import { logAuditEvent } from '../utils/auditLogger.js';
 import { generateComplaintId } from '../utils/idGenerator.js';
+import { notifyAdminsOfNewComplaint } from '../services/adminNotificationService.js';
 
 const ALLOWED_CATEGORIES = [
   'Blood was not provided to the intended patient',
@@ -33,8 +34,8 @@ export const createComplaint = async (req, res, next) => {
       evidenceUrls,
     } = req.body;
 
-    if (!complainantType || !['patient', 'family_member'].includes(complainantType)) {
-      return next(new AppError("Complainant type must be 'patient' or 'family_member'.", 400));
+    if (!complainantType || !['patient', 'family_member', 'donor'].includes(complainantType)) {
+      return next(new AppError("Complainant type must be 'patient', 'family_member', or 'donor'.", 400));
     }
 
     if (!category || !ALLOWED_CATEGORIES.includes(category)) {
@@ -103,17 +104,28 @@ export const createComplaint = async (req, res, next) => {
 
     // Authorization checks
     const isAdmin = req.user.role === 'admin';
+    const isDonor = req.user.role === 'donor';
     const isPatient = patient.claimedByUser && patient.claimedByUser.toString() === req.user._id.toString();
     const isApprovedFamily = patient.familyAccess && patient.familyAccess.some(
       (fa) => fa.user && fa.user.toString() === req.user._id.toString() && fa.status === 'approved'
     );
 
     if (!isAdmin) {
-      if (complainantType === 'patient' && !isPatient) {
+      if (complainantType === 'donor') {
+        if (!isDonor) {
+          return next(new AppError('Only registered donors can submit a complaint as a donor.', 403));
+        }
+        // Verify donor is associated with this blood request
+        const isAssociatedDonor =
+          (bloodRequest.acceptedDonor && bloodRequest.acceptedDonor.toString() === req.user._id.toString()) ||
+          (bloodRequest.notifiedDonors && bloodRequest.notifiedDonors.some((d) => d.toString() === req.user._id.toString())) ||
+          (bloodRequest.declinedDonors && bloodRequest.declinedDonors.some((d) => d.toString() === req.user._id.toString()));
+        if (!isAssociatedDonor) {
+          return next(new AppError('You are not associated with this blood request as a donor.', 403));
+        }
+      } else if (complainantType === 'patient' && !isPatient) {
         return next(new AppError('You are not authorized to submit a complaint as the primary patient for this record.', 403));
-      }
-
-      if (complainantType === 'family_member' && !isApprovedFamily) {
+      } else if (complainantType === 'family_member' && !isApprovedFamily) {
         return next(new AppError('You must have approved family access for this patient record before submitting a complaint.', 403));
       }
     }
@@ -156,9 +168,14 @@ export const createComplaint = async (req, res, next) => {
       details: `Complaint ${complaintId} filed by ${req.user.fullName} (${complainantType}) against hospital ${hospital.name} for request ${bloodRequest._id}.`,
     });
 
+    notifyAdminsOfNewComplaint(newComplaint).catch((err) => {
+      console.warn('[ComplaintController] Admin notification error on complaint creation:', err.message);
+    });
+
     res.status(201).json({
       success: true,
       message: 'Complaint submitted successfully and logged for administrative investigation.',
+      complaintId: newComplaint.complaintId,
       complaint: newComplaint,
     });
   } catch (error) {
@@ -255,6 +272,10 @@ export const createPublicComplaint = async (req, res, next) => {
       ipAddress: req.ip,
       severity: 'NORMAL',
       details: `Public complaint ${complaintId} submitted against hospital ${hospital.name} for patient ${patient.patientId}.`,
+    });
+
+    notifyAdminsOfNewComplaint(newComplaint).catch((err) => {
+      console.warn('[ComplaintController] Admin notification error on public complaint creation:', err.message);
     });
 
     res.status(201).json({
@@ -494,6 +515,41 @@ export const resolveComplaint = async (req, res, next) => {
       success: true,
       message: `Complaint has been successfully ${status.toLowerCase()}.`,
       complaint,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Track public complaint status by reference ID
+ * @route   GET /api/complaints/public/track/:complaintId
+ * @access  Public (Rate limited)
+ */
+export const trackPublicComplaint = async (req, res, next) => {
+  try {
+    const { complaintId } = req.params;
+    if (!complaintId || typeof complaintId !== 'string' || !complaintId.trim()) {
+      return next(new AppError('Complaint Reference ID is required.', 400));
+    }
+
+    const cleanId = complaintId.trim().toUpperCase();
+    const complaint = await Complaint.findOne({ complaintId: cleanId });
+
+    if (!complaint) {
+      return next(new AppError('No complaint found with this Reference ID. Please verify and try again.', 404));
+    }
+
+    // Privacy-preserving response: return status and lifecycle timestamps without exposing medical identifiers
+    res.status(200).json({
+      success: true,
+      complaint: {
+        complaintId: complaint.complaintId,
+        status: complaint.status,
+        category: complaint.category,
+        createdAt: complaint.createdAt,
+        updatedAt: complaint.updatedAt,
+      },
     });
   } catch (error) {
     next(error);

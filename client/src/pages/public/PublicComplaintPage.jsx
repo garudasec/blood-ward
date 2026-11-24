@@ -13,6 +13,10 @@ import {
   HelpCircle,
   Copy,
   Check,
+  Search,
+  Clock,
+  ShieldCheck,
+  RotateCw,
 } from 'lucide-react';
 import { complaintService } from '../../services/complaintService';
 
@@ -25,6 +29,7 @@ const COMPLAINT_CATEGORIES = [
 ];
 
 export default function PublicComplaintPage() {
+  const [activeTab, setActiveTab] = useState('submit'); // 'submit' | 'track'
   const [formData, setFormData] = useState({
     patientId: '',
     hospitalId: '',
@@ -38,6 +43,12 @@ export default function PublicComplaintPage() {
   const [serverError, setServerError] = useState('');
   const [submittedComplaint, setSubmittedComplaint] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  // Track tab state
+  const [trackId, setTrackId] = useState('');
+  const [isTracking, setIsTracking] = useState(false);
+  const [trackError, setTrackError] = useState('');
+  const [trackResult, setTrackResult] = useState(null);
 
   const handleChange = (e) => {
     const { id, value } = e.target;
@@ -113,6 +124,31 @@ export default function PublicComplaintPage() {
     }
   };
 
+  const handleTrackSubmit = async (e) => {
+    e.preventDefault();
+    if (!trackId.trim()) {
+      setTrackError('Please enter a Complaint Reference ID (e.g. BW-CMP-000001).');
+      return;
+    }
+
+    setIsTracking(true);
+    setTrackError('');
+    setTrackResult(null);
+
+    try {
+      const res = await complaintService.trackPublicComplaint(trackId.trim());
+      if (res && res.complaint) {
+        setTrackResult(res.complaint);
+      } else {
+        setTrackError('No complaint found with this Reference ID. Please verify your reference number.');
+      }
+    } catch (err) {
+      setTrackError(err.message || 'Complaint not found. Please verify your Reference ID.');
+    } finally {
+      setIsTracking(false);
+    }
+  };
+
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -144,6 +180,34 @@ export default function PublicComplaintPage() {
             <ArrowLeft className="w-4 h-4" /> Back to Home
           </Link>
         </div>
+
+        {/* Tab Selector */}
+        {!submittedComplaint && (
+          <div className="flex rounded-xl bg-slate-200/70 dark:bg-zinc-800/80 p-1 mb-6 max-w-md mx-auto">
+            <button
+              type="button"
+              onClick={() => { setActiveTab('submit'); setServerError(''); }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === 'submit'
+                  ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              }`}
+            >
+              Submit Misconduct Report
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('track'); setTrackError(''); }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === 'track'
+                  ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              }`}
+            >
+              Track Existing Complaint
+            </button>
+          </div>
+        )}
 
         {/* Submission Success State */}
         {submittedComplaint ? (
@@ -188,10 +252,20 @@ export default function PublicComplaintPage() {
 
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
+                onClick={() => {
+                  setTrackId(submittedComplaint.complaintReferenceId);
+                  setSubmittedComplaint(null);
+                  setActiveTab('track');
+                }}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 text-xs font-semibold text-[#A61B2B] dark:text-rose-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
+              >
+                Track This Complaint Now
+              </button>
+              <button
                 onClick={handleReset}
                 className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
               >
-                Submit Another Complaint
+                Submit Another
               </button>
               <Link
                 to="/"
@@ -200,6 +274,128 @@ export default function PublicComplaintPage() {
                 Return to Home
               </Link>
             </div>
+          </div>
+        ) : activeTab === 'track' ? (
+          /* Track Complaint Card */
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden">
+            <div className="px-6 py-8 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-900/40">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center shadow-xs">
+                  <Search className="w-5 h-5" />
+                </div>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
+                    Track Complaint Status
+                  </h1>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Real-time status tracking for registered hospital & clinical misconduct reports
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleTrackSubmit} className="p-6 sm:p-8 space-y-6">
+              {trackError && (
+                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-xs flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 shrink-0 text-red-600 mt-0.5" />
+                  <div>
+                    <span className="font-semibold block text-red-900 dark:text-red-200">Tracking Error</span>
+                    <p className="mt-0.5">{trackError}</p>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="trackId" className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                  Complaint Reference ID <span className="text-[#A61B2B]">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="trackId"
+                    type="text"
+                    placeholder="e.g. BW-CMP-000001"
+                    value={trackId}
+                    onChange={(e) => {
+                      setTrackId(e.target.value);
+                      if (trackError) setTrackError('');
+                    }}
+                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 text-xs text-slate-900 dark:text-zinc-100 font-mono focus:outline-none focus:ring-2 focus:ring-[#A61B2B]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isTracking}
+                    className="px-5 py-2.5 rounded-xl bg-[#A61B2B] hover:bg-[#8F1624] text-white text-xs font-semibold shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
+                  >
+                    {isTracking ? (
+                      <RotateCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                    {isTracking ? 'Searching...' : 'Track'}
+                  </button>
+                </div>
+              </div>
+
+              {trackResult && (
+                <div className="p-5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-400 block font-mono">
+                        Complaint Reference
+                      </span>
+                      <span className="font-mono font-bold text-base text-slate-900 dark:text-zinc-100">
+                        {trackResult.complaintId}
+                      </span>
+                    </div>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        trackResult.status === 'Resolved'
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                          : trackResult.status === 'Dismissed'
+                          ? 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'
+                          : trackResult.status === 'Under Investigation'
+                          ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800'
+                          : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                      }`}
+                    >
+                      {trackResult.status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-2 border-t border-slate-200 dark:border-zinc-700">
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Category</span>
+                      <span className="font-medium text-slate-800 dark:text-zinc-200">{trackResult.category}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Submitted Date</span>
+                      <span className="font-medium text-slate-800 dark:text-zinc-200">
+                        {trackResult.createdAt ? new Date(trackResult.createdAt).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {trackResult.resolvedAt && (
+                    <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 text-xs">
+                      <span className="font-semibold text-emerald-800 dark:text-emerald-300 block">
+                        Case Resolution Details:
+                      </span>
+                      <p className="text-emerald-700 dark:text-emerald-400 mt-1">
+                        {trackResult.resolutionReason || 'This investigation was reviewed and formally concluded by the platform administration.'}
+                      </p>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-500 mt-1 block">
+                        Resolved on {new Date(trackResult.resolvedAt).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="text-[11px] text-slate-400 dark:text-zinc-500 flex items-center gap-1.5 pt-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Protected under clinical privacy and anti-enumeration governance.</span>
+                  </div>
+                </div>
+              )}
+            </form>
           </div>
         ) : (
           /* Complaint Submission Form */

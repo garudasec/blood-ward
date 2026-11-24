@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import ThemeToggle from "../components/common/ThemeToggle";
 import LogoutConfirmModal from "../components/common/LogoutConfirmModal";
+import NotificationDropdown from "../components/common/NotificationDropdown";
 
 export default function RecipientLayout() {
   const { user, logout } = useAuth();
@@ -95,15 +96,8 @@ export default function RecipientLayout() {
                 </div>
               )}
 
-              {/* Notification Indicator */}
-              <div className="relative p-1.5 rounded-lg bg-[#F8FAFC] dark:bg-[#20242C] border border-[#E2E8F0] dark:border-[#343B47] text-[#475569] dark:text-[#CBD5E1]">
-                <Bell className="w-4 h-4" />
-                {toasts && toasts.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#A61B2B] text-white text-[9px] font-mono font-bold flex items-center justify-center animate-pulse">
-                    {toasts.length}
-                  </span>
-                )}
-              </div>
+              {/* Notification Centre */}
+              <NotificationDropdown />
 
               {/* User Identity */}
               <div className="text-right hidden md:block">

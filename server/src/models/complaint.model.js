@@ -57,7 +57,7 @@ const complaintSchema = new mongoose.Schema(
     },
     complainantType: {
       type: String,
-      enum: ['patient', 'family_member', 'public'],
+      enum: ['patient', 'family_member', 'donor', 'public'],
       default: 'public',
       required: true,
     },
