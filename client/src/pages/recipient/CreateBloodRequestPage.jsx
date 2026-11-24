@@ -84,6 +84,7 @@ export default function CreateBloodRequestPage() {
   const [showReview, setShowReview] = useState(false);
   const [claimCodeModal, setClaimCodeModal] = useState(null);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedPatientId, setCopiedPatientId] = useState(false);
 
   const suggestedRadius = getSuggestedRadius(formData.requiredDate);
 
@@ -584,33 +585,67 @@ export default function CreateBloodRequestPage() {
                 Blood Request Published!
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                A unique single-use patient claim code has been generated for {claimCodeModal.patientName}.
+                Hospital patient identifiers have been generated for {claimCodeModal.patientName}.
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                Patient Claim Code
-              </span>
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-2xl font-mono font-extrabold text-[#A61B2B] tracking-wider select-all">
+            {/* Identifiers Container */}
+            <div className="space-y-3">
+              {/* Patient ID */}
+              {claimCodeModal.patientId && (
+                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-left">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                      Patient ID
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(claimCodeModal.patientId);
+                        setCopiedPatientId(true);
+                        setTimeout(() => setCopiedPatientId(false), 2000);
+                      }}
+                      className="p-1 rounded-md border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                      title="Copy Patient ID"
+                    >
+                      {copiedPatientId ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <div className="text-lg font-mono font-bold text-zinc-900 dark:text-zinc-100 tracking-wider select-all">
+                    {claimCodeModal.patientId}
+                  </div>
+                </div>
+              )}
+
+              {/* Claim Code */}
+              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-left">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    Single-Use Claim Code
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(claimCodeModal.claimCode);
+                      setCopiedCode(true);
+                      setTimeout(() => setCopiedCode(false), 2000);
+                    }}
+                    className="p-1 rounded-md border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                    title="Copy Claim Code"
+                  >
+                    {copiedCode ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <div className="text-xl font-mono font-extrabold text-[#A61B2B] dark:text-rose-400 tracking-wider select-all">
                   {claimCodeModal.claimCode}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(claimCodeModal.claimCode);
-                    setCopiedCode(true);
-                    setTimeout(() => setCopiedCode(false), 2000);
-                  }}
-                  className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
-                  title="Copy Code"
-                >
-                  {copiedCode ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                </button>
+                </div>
               </div>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
-                Provide this secure code to the patient or authorized family member so they can link this requisition to their BloodWard dashboard.
+            </div>
+
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/50 text-left text-[11px] text-amber-800 dark:text-amber-300 space-y-1">
+              <p className="font-semibold">How to Hand Over:</p>
+              <p>
+                Provide <strong>both the Patient ID and Claim Code</strong> to the patient or authorized family member. They can navigate to their Recipient Dashboard, click <strong>"Claim Hospital Patient Record"</strong>, and enter these credentials to link this requisition. The claim code is single-use and time-limited.
               </p>
             </div>
 

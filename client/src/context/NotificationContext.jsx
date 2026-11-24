@@ -80,8 +80,8 @@ export const NotificationProvider = ({ children }) => {
     const handleDonorNewRequest = (payload) => {
       if (!payload) return;
       const reqId = payload.requestId || payload.id || "";
-      const isEmergency = payload.urgency === "Emergency";
-      const dedupeKey = `donor:req:${reqId}:${isEmergency ? "emerg" : "norm"}`;
+      const isUrgent = payload.urgency === "Emergency" || payload.urgency === "High";
+      const dedupeKey = `donor:req:${reqId}:${isUrgent ? "urgent" : "norm"}`;
 
       if (shouldDeduplicate(dedupeKey)) return;
 
@@ -90,10 +90,10 @@ export const NotificationProvider = ({ children }) => {
       const hospital = payload.hospitalName ? ` at ${payload.hospitalName}` : "";
       const city = payload.city ? `, ${payload.city}` : "";
 
-      if (isEmergency) {
+      if (isUrgent) {
         addToast({
-          title: "🚨 Emergency Blood Requisition",
-          message: `URGENT: ${bloodGroup} required ${units}${hospital}${city}.`,
+          title: payload.urgency === "Emergency" ? "🚨 Emergency Blood Requisition" : "⚠️ High Urgency Blood Request",
+          message: `${payload.urgency ? payload.urgency.toUpperCase() : 'URGENT'}: ${bloodGroup} required ${units}${hospital}${city}.`,
           type: "error",
           path: "/donor/requests",
           actionText: "Respond Now",

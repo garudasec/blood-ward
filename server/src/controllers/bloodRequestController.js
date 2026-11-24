@@ -13,6 +13,7 @@ import { logAuditEvent } from '../utils/auditLogger.js';
 import { getCityCoordinates } from '../utils/cityCoordinates.js';
 import { notifyMatchingDonors, emitToUser, emitToRole } from '../socket.js';
 import Match from '../models/match.model.js';
+import { notifyAdminsOfNewBloodRequest } from '../services/adminNotificationService.js';
 import {
   notifyDonorAccepted,
   notifyDonorDeclined,
@@ -336,6 +337,10 @@ export const createBloodRequest = async (req, res, next) => {
     if (isVerified) {
       notifyMatchingDonors(populatedRequest);
     }
+
+    notifyAdminsOfNewBloodRequest(populatedRequest || newRequest).catch((err) => {
+      console.warn('[BloodRequestController] Admin notification error on blood request creation:', err.message);
+    });
 
     res.status(201).json({
       success: true,
@@ -888,16 +893,42 @@ export const fulfillBloodRequest = async (req, res, next) => {
       return next(new AppError('Only the request owner, accepted donor, or admin can fulfill a request.', 403));
     }
 
+    // Idempotent: if already Fulfilled, return 200 without duplicate processing
+    if (bloodRequest.status === 'Fulfilled') {
+      return res.status(200).json({
+        success: true,
+        message: 'Blood request is already fulfilled.',
+        request: sanitizeBloodRequest(bloodRequest, req.user.role, req.user._id),
+      });
+    }
+
     if (bloodRequest.status !== 'In Progress') {
       return next(new AppError('Request must be "In Progress" before it can be marked Fulfilled.', 400));
     }
 
-    bloodRequest.status = 'Fulfilled';
-    await bloodRequest.save({ validateBeforeSave: false });
+    // Atomic state transition to prevent race conditions during concurrent requests
+    const updatedRequest = await BloodRequest.findOneAndUpdate(
+      { _id: id, status: 'In Progress' },
+      { $set: { status: 'Fulfilled' } },
+      { new: true }
+    );
+
+    if (!updatedRequest) {
+      // Concurrently updated by another request
+      const current = await BloodRequest.findById(id);
+      if (current && current.status === 'Fulfilled') {
+        return res.status(200).json({
+          success: true,
+          message: 'Blood request is already fulfilled.',
+          request: sanitizeBloodRequest(current, req.user.role, req.user._id),
+        });
+      }
+      return next(new AppError('Request must be "In Progress" before it can be marked Fulfilled.', 400));
+    }
 
     const fPayload = { requestId: id, status: 'Fulfilled' };
-    if (bloodRequest.recipient) emitToUser(bloodRequest.recipient, 'bloodRequest:fulfilled', fPayload);
-    if (bloodRequest.acceptedDonor) emitToUser(bloodRequest.acceptedDonor, 'bloodRequest:fulfilled', fPayload);
+    if (updatedRequest.recipient) emitToUser(updatedRequest.recipient, 'bloodRequest:fulfilled', fPayload);
+    if (updatedRequest.acceptedDonor) emitToUser(updatedRequest.acceptedDonor, 'bloodRequest:fulfilled', fPayload);
     emitToRole('donor', 'bloodRequest:fulfilled', fPayload);
     emitToRole('donor', 'bloodRequest:unavailable', fPayload);
     emitToRole('donor', 'request:unavailable', fPayload);
@@ -916,13 +947,13 @@ export const fulfillBloodRequest = async (req, res, next) => {
     try {
       const match = await Match.findOne({
         request: id,
-        status: 'Accepted',
+        status: { $in: ['Accepted', 'Completed'] },
       });
       if (match) {
-        const donorUser = await User.findById(bloodRequest.acceptedDonor);
-        const recipientUser = await User.findById(bloodRequest.recipient);
+        const donorUser = await User.findById(updatedRequest.acceptedDonor);
+        const recipientUser = await User.findById(updatedRequest.recipient);
         if (donorUser && recipientUser) {
-          await notifyDonationCompleted(match._id, donorUser, recipientUser, bloodRequest);
+          await notifyDonationCompleted(match._id, donorUser, recipientUser, updatedRequest);
         }
       }
     } catch (matchErr) {
@@ -932,7 +963,7 @@ export const fulfillBloodRequest = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Blood request marked fulfilled successfully.',
-      request: sanitizeBloodRequest(bloodRequest, req.user.role, req.user._id),
+      request: sanitizeBloodRequest(updatedRequest, req.user.role, req.user._id),
     });
   } catch (error) {
     next(error);

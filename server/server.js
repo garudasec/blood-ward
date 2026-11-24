@@ -22,7 +22,6 @@ import adminRouter from "./src/routes/admin.routes.js";
 import hospitalRouter from "./src/routes/hospital.routes.js";
 import patientRouter from "./src/routes/patient.routes.js";
 import complaintRouter from "./src/routes/complaint.routes.js";
-import otpRouter from "./src/routes/otp.routes.js";
 import matchRouter from "./src/routes/match.routes.js";
 import inAppNotificationRouter from "./src/routes/inAppNotification.routes.js";
 import { runMatchCleanupJob } from "./src/services/matchCleanupService.js";
@@ -36,14 +35,11 @@ const validateSecurityConfig = () => {
   if (!process.env.ENCRYPTION_SECRET || process.env.ENCRYPTION_SECRET.trim().length < 32) {
     missing.push("ENCRYPTION_SECRET (min 32 chars)");
   }
-  if (!process.env.OTP_HMAC_SECRET || process.env.OTP_HMAC_SECRET.trim().length < 32) {
-    missing.push("OTP_HMAC_SECRET (min 32 chars)");
-  }
   if (missing.length > 0) {
     console.error(
       `[SECURITY CONFIGURATION WARNING] The following required security environment variables are missing or invalid: ${missing.join(
         ", "
-      )}. Features depending on them (such as OTP email verification and encrypted database credentials) will fail until configured in your environment settings (e.g. Render Dashboard).`
+      )}. Features depending on them (such as encrypted database credentials) will fail until configured in your environment settings (e.g. Render Dashboard).`
     );
   }
 };
@@ -77,7 +73,11 @@ if (trustProxyHops !== false) {
   app.set("trust proxy", trustProxyHops);
 }
 
-app.use(helmet());
+app.use(
+  helmet({
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  })
+);
 app.use(sanitizeMiddleware);
 
 const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
@@ -105,7 +105,6 @@ app.use("/api/admin", adminRouter);
 app.use("/api/hospitals", hospitalRouter);
 app.use("/api/patients", patientRouter);
 app.use("/api/complaints", complaintRouter);
-app.use("/api/otp", otpRouter);
 app.use("/api/matches", matchRouter);
 app.use("/api/notifications", inAppNotificationRouter);
 
