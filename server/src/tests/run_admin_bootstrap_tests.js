@@ -1,4 +1,4 @@
-import { seedVerifiedEmailOtp } from './testDb.js';
+import './testDb.js';
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -100,7 +100,6 @@ async function runTests() {
       assert(dashRes.status === 200, "TEST 8: Admin dashboard endpoint returns 200");
 
       const donorEmail = `donor_${Date.now()}@bloodward.test`;
-      await seedVerifiedEmailOtp(donorEmail);
       const donorRegRes = await fetch(`${baseUrl}/auth/register/donor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

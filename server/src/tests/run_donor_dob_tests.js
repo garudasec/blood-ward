@@ -1,4 +1,4 @@
-import { seedVerifiedEmailOtp } from './testDb.js';
+import './testDb.js';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -175,7 +175,6 @@ async function runTests() {
   assert('7. Donor registration rejects future DOB (400)', futureRes.status === 400 && futureRes.data.message.includes('future'), JSON.stringify(futureRes.data));
 
   // 5. Registration API: Valid DOB (>= 18) succeeds (201)
-  await seedVerifiedEmailOtp('adult_dobtest@bloodward.test');
   const validAdultRes = await request('/api/auth/register/donor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -194,7 +193,6 @@ async function runTests() {
   assert('8. Donor registration succeeds with valid DOB >= 18 and Non-binary gender (201)', validAdultRes.status === 201 && validAdultRes.data.user.dateOfBirth === adultDOB, JSON.stringify(validAdultRes.data));
 
   // 6. Registration API: Gender is optional
-  await seedVerifiedEmailOtp('nogender_dobtest@bloodward.test');
   const noGenderRes = await request('/api/auth/register/donor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -211,7 +209,6 @@ async function runTests() {
 
   // 7. Privacy: DOB and Gender NOT exposed in public donor search
   // Create a recipient to perform search
-  await seedVerifiedEmailOtp('search_rec_dobtest@bloodward.test');
   const recRes = await request('/api/auth/register/recipient', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

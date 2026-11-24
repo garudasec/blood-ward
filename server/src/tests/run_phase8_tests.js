@@ -1,4 +1,4 @@
-import { seedVerifiedEmailOtp } from './testDb.js';
+import './testDb.js';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -245,7 +245,6 @@ const runSuite = async () => {
   record('TEST 23', 'Audit log contains no JWT / cookies', 200, 200, noJwtInLog);
 
   // 24. Public donor registration cannot create admin role
-  await seedVerifiedEmailOtp('fake_admin_donor_p8@bloodward.test');
   const regDonorRes = await request('/api/auth/register/donor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -263,7 +262,6 @@ const runSuite = async () => {
   console.log('TEST 24 Data:', regDonorRes.data); record('TEST 24', 'Public donor registration forces donor role', 201, regDonorRes.status, donorRoleForced);
 
   // 25. Public recipient registration cannot create admin role
-  await seedVerifiedEmailOtp('fake_admin_rec_p8@bloodward.test');
   const regRecRes = await request('/api/auth/register/recipient', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

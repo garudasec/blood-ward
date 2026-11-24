@@ -4,6 +4,7 @@ import User from '../models/user.model.js';
 import notificationManager from './notification/notificationManager.js';
 import { emitToUser } from '../socket.js';
 import { maskEmail } from '../utils/encryptionUtils.js';
+import { notifyAdminsOfMatchAccepted, notifyAdminsOfDonationCompleted } from './adminNotificationService.js';
 
 const CLIENT_BASE_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
@@ -104,24 +105,30 @@ export async function createAndNotifyPotentialMatches(bloodRequest, eligibleDono
       // Live socket push to donor
       emitToUser(donor._id, 'notification:new', donorInApp);
 
-      // 2. Create In-App Notification for Recipient
-      const recipientInApp = await InAppNotification.create({
+      // 2. Create In-App Notification for Recipient (deduplicated per blood request)
+      const existingRecInApp = await InAppNotification.findOne({
         user: recipientUser._id,
-        match: match._id,
         request: bloodRequest._id,
         type: 'potential_match',
-        title: '🎯 Potential Donor Match Found',
-        message: `A potential donor has been matched for your ${bloodRequest.bloodGroup} request at ${bloodRequest.hospitalName}. Awaiting donor response.`,
-        link: '/recipient/requests',
-        metadata: {
-          bloodGroup: bloodRequest.bloodGroup,
-          hospitalName: bloodRequest.hospitalName,
-          matchId: match._id.toString(),
-        },
       });
 
-      // Live socket push to recipient
-      emitToUser(recipientUser._id, 'notification:new', recipientInApp);
+      if (!existingRecInApp) {
+        const recipientInApp = await InAppNotification.create({
+          user: recipientUser._id,
+          match: match._id,
+          request: bloodRequest._id,
+          type: 'potential_match',
+          title: '🎯 Potential Donor Match Found',
+          message: `A potential donor has been matched for your ${bloodRequest.bloodGroup} request at ${bloodRequest.hospitalName}. Awaiting donor response.`,
+          link: '/recipient/requests',
+          metadata: {
+            bloodGroup: bloodRequest.bloodGroup,
+            hospitalName: bloodRequest.hospitalName,
+            matchId: match._id.toString(),
+          },
+        });
+        emitToUser(recipientUser._id, 'notification:new', recipientInApp);
+      }
 
       // 3. Asynchronously send initial emails without blocking matching engine
       setImmediate(async () => {
@@ -166,8 +173,13 @@ export async function createAndNotifyPotentialMatches(bloodRequest, eligibleDono
           }
         }
 
-        // Recipient Email
-        if (!match.recipientEmailSent && recipientUser.email) {
+        // Recipient Email (deduplicated per blood request so recipient is not spammed per donor)
+        const existingSentMatch = await Match.findOne({
+          request: bloodRequest._id,
+          recipientEmailSent: true,
+        });
+
+        if (!existingSentMatch && recipientUser.email) {
           const recSubject = 'BloodWard – A donor match has been found for your request';
           const recHtml = `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1E293B;">
@@ -258,6 +270,11 @@ export async function notifyDonorAccepted(matchId, donorUser, bloodRequest) {
   });
   emitToUser(donorUser._id, 'notification:new', donorInApp);
 
+  // 3. Notify Admins
+  notifyAdminsOfMatchAccepted(match, bloodRequest, donorUser).catch((err) => {
+    console.warn('[MatchNotificationService] Admin notification error on match accepted:', err.message);
+  });
+
   // 3. Asynchronously send Recipient Email
   if (!match.acceptanceEmailSent && recipient.email) {
     setImmediate(async () => {
@@ -332,19 +349,24 @@ export async function notifyDonorDeclined(matchId, donorUser, bloodRequest) {
 
 /**
  * Handles donation completion lifecycle event.
+ * Transition is atomic and idempotent.
  */
 export async function notifyDonationCompleted(matchId, donorUser, recipientUser, bloodRequest) {
-  const match = await Match.findById(matchId).populate('donor').populate('recipient').populate('request');
-  if (!match) return;
+  const completionTimestamp = new Date();
+
+  // Atomically claim the transition to 'Completed' to avoid duplicate notifications under concurrency
+  const claimedTransition = await Match.findOneAndUpdate(
+    { _id: matchId, status: { $ne: 'Completed' } },
+    { $set: { status: 'Completed', completedAt: completionTimestamp } },
+    { new: true }
+  ).populate('donor').populate('recipient').populate('request');
+
+  const match = claimedTransition || await Match.findById(matchId).populate('donor').populate('recipient').populate('request');
+  if (!match) return null;
 
   const effectiveDonor = donorUser || match.donor;
   const effectiveRecipient = recipientUser || match.recipient;
   const effectiveRequest = bloodRequest || match.request;
-
-  const completionTimestamp = new Date();
-  match.status = 'Completed';
-  match.completedAt = completionTimestamp;
-  await match.save();
 
   // Release donor's active accepted match lock upon successful completion
   if (effectiveDonor?._id) {
@@ -354,101 +376,220 @@ export async function notifyDonationCompleted(matchId, donorUser, recipientUser,
     );
   }
 
-  // 1. Donor In-App Notification
-  if (effectiveDonor?._id && effectiveRequest?._id) {
-    const donorInApp = await InAppNotification.create({
-      user: effectiveDonor._id,
-      match: match._id,
-      request: effectiveRequest._id,
-      type: 'donation_completed',
-      title: '🏆 Donation Completed',
-      message: `Thank you for your life-saving blood donation for ${effectiveRequest.bloodGroup} at ${effectiveRequest.hospitalName}. Completed on ${completionTimestamp.toLocaleDateString()}.`,
-      link: '/donor/history',
-      metadata: {
-        matchId: match._id.toString(),
-        completedAt: completionTimestamp,
-      },
+  // Only dispatch in-app & admin notifications on the first transition (avoid duplicates)
+  if (claimedTransition) {
+    // 1. Donor In-App Notification
+    if (effectiveDonor?._id && effectiveRequest?._id) {
+      const donorInApp = await InAppNotification.create({
+        user: effectiveDonor._id,
+        match: match._id,
+        request: effectiveRequest._id,
+        type: 'donation_completed',
+        title: '🏆 Donation Completed',
+        message: `Thank you for your life-saving blood donation for ${effectiveRequest.bloodGroup} at ${effectiveRequest.hospitalName}. Completed on ${completionTimestamp.toLocaleDateString()}.`,
+        link: '/donor/history',
+        metadata: {
+          matchId: match._id.toString(),
+          completedAt: completionTimestamp,
+        },
+      });
+      emitToUser(effectiveDonor._id, 'notification:new', donorInApp);
+    }
+
+    // 2. Recipient In-App Notification
+    if (effectiveRecipient?._id && effectiveRequest?._id) {
+      const recInApp = await InAppNotification.create({
+        user: effectiveRecipient._id,
+        match: match._id,
+        request: effectiveRequest._id,
+        type: 'donation_completed',
+        title: '🩸 Donation Completed Successfully',
+        message: `Blood donation for your request at ${effectiveRequest.hospitalName} has been completed. Match reference: ${match._id}.`,
+        link: '/recipient/requests',
+        metadata: {
+          matchId: match._id.toString(),
+          completedAt: completionTimestamp,
+        },
+      });
+      emitToUser(effectiveRecipient._id, 'notification:new', recInApp);
+    }
+
+    // Notify Admins of completion
+    notifyAdminsOfDonationCompleted(match, effectiveRequest).catch((err) => {
+      console.warn('[MatchNotificationService] Admin notification error on donation completed:', err.message);
     });
-    emitToUser(effectiveDonor._id, 'notification:new', donorInApp);
   }
 
-  // 2. Recipient In-App Notification
-  if (effectiveRecipient?._id && effectiveRequest?._id) {
-    const recInApp = await InAppNotification.create({
-      user: effectiveRecipient._id,
-      match: match._id,
-      request: effectiveRequest._id,
-      type: 'donation_completed',
-      title: '🩸 Donation Completed Successfully',
-      message: `Blood donation for your request at ${effectiveRequest.hospitalName} has been completed. Match reference: ${match._id}.`,
-      link: '/recipient/requests',
-      metadata: {
-        matchId: match._id.toString(),
-        completedAt: completionTimestamp,
-      },
-    });
-    emitToUser(effectiveRecipient._id, 'notification:new', recInApp);
-  }
-
-  // 3. Asynchronously send completion emails to both users
+  // Dispatch completion emails (or schedule/await safely without rolling back donation)
   if (!match.completionEmailSent) {
-    setImmediate(async () => {
-      // Donor Email
-      if (effectiveDonor?.email) {
-        const donorSubject = 'Thank you for your life-saving blood donation';
-        const donorHtml = `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1E293B;">
-            <div style="background-color: #A61B2B; padding: 16px 24px; border-radius: 8px 8px 0 0; color: #ffffff;">
-              <h2 style="margin: 0; font-size: 20px;">BloodWard — Donation Confirmed</h2>
-            </div>
-            <div style="padding: 24px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 8px 8px; background-color: #ffffff;">
-              <p style="font-size: 15px; line-height: 1.5;">Dear <strong>${effectiveDonor.fullName || 'Hero'}</strong>,</p>
-              <p style="font-size: 14px; line-height: 1.5; color: #15803D; font-weight: bold;">Your blood donation has been officially confirmed as completed.</p>
-              <p style="font-size: 13px; line-height: 1.5; color: #475569;">Thank you for your generosity in providing emergency blood support for ${effectiveRequest?.bloodGroup || ''} at ${effectiveRequest?.hospitalName || 'hospital'}. Your contribution saves lives.</p>
-              <div style="margin: 24px 0; text-align: center;">
-                <a href="${CLIENT_BASE_URL}/donor/history" style="background-color: #A61B2B; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">View Donation History</a>
-              </div>
+    await dispatchCompletionEmails(match._id, effectiveDonor, effectiveRecipient, effectiveRequest);
+  }
+
+  return match;
+}
+
+/**
+ * Dispatches completion emails with provider acceptance verification.
+ * Retries definite delivery failures without resending to already succeeded recipients.
+ * Halts and records actionable state on uncertain delivery outcomes.
+ * Exported as dispatchCompletionEmails and retryCompletionEmail.
+ */
+export async function dispatchCompletionEmails(matchId, donorUser, recipientUser, bloodRequest, options = {}) {
+  const match = await Match.findById(matchId).populate('donor').populate('recipient').populate('request');
+  if (!match) return { success: false, error: 'Match record not found' };
+
+  if (match.completionEmailSent && !options.force) {
+    return { success: true, message: 'Completion email already confirmed delivered' };
+  }
+
+  // Concurrency lock using atomic update
+  const locked = await Match.findOneAndUpdate(
+    { _id: matchId, 'metadata.emailDispatchInProgress': { $ne: true } },
+    { $set: { 'metadata.emailDispatchInProgress': true, 'metadata.lastDispatchAttempt': new Date() } },
+    { new: true }
+  );
+
+  if (!locked && !options.force) {
+    return { success: false, inProgress: true, message: 'Email dispatch already in progress' };
+  }
+
+  try {
+    const effectiveDonor = donorUser || match.donor;
+    const effectiveRecipient = recipientUser || match.recipient;
+    const effectiveRequest = bloodRequest || match.request;
+
+    let donorSent = match.metadata?.donorCompletionEmailSent || false;
+    let recipientSent = match.metadata?.recipientCompletionEmailSent || false;
+    let donorError = null;
+    let recipientError = null;
+    let hasUncertainOutcome = false;
+
+    // 1. Donor Email (if not already successfully confirmed)
+    if (effectiveDonor?.email && !donorSent) {
+      const donorSubject = 'Thank you for your life-saving blood donation';
+      const donorHtml = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1E293B;">
+          <div style="background-color: #A61B2B; padding: 16px 24px; border-radius: 8px 8px 0 0; color: #ffffff;">
+            <h2 style="margin: 0; font-size: 20px;">BloodWard — Donation Confirmed</h2>
+          </div>
+          <div style="padding: 24px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 8px 8px; background-color: #ffffff;">
+            <p style="font-size: 15px; line-height: 1.5;">Dear <strong>${effectiveDonor.fullName || 'Hero'}</strong>,</p>
+            <p style="font-size: 14px; line-height: 1.5; color: #15803D; font-weight: bold;">Your blood donation has been officially confirmed as completed.</p>
+            <p style="font-size: 13px; line-height: 1.5; color: #475569;">Thank you for your generosity in providing emergency blood support for ${effectiveRequest?.bloodGroup || ''} at ${effectiveRequest?.hospitalName || 'hospital'}. Your contribution saves lives.</p>
+            <div style="margin: 24px 0; text-align: center;">
+              <a href="${CLIENT_BASE_URL}/donor/history" style="background-color: #A61B2B; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">View Donation History</a>
             </div>
           </div>
-        `;
-        await safeSendEmail({
-          to: effectiveDonor.email,
-          subject: donorSubject,
-          html: donorHtml,
-          text: `BloodWard: Thank you for your life-saving blood donation at ${effectiveRequest?.hospitalName || 'hospital'}. View history: ${CLIENT_BASE_URL}/donor/history`,
-          purpose: 'donation_completed_donor',
-          metadata: { matchId: match._id.toString() },
-        });
-      }
+        </div>
+      `;
+      const donorResult = await safeSendEmail({
+        to: effectiveDonor.email,
+        subject: donorSubject,
+        html: donorHtml,
+        text: `BloodWard: Thank you for your life-saving blood donation at ${effectiveRequest?.hospitalName || 'hospital'}. View history: ${CLIENT_BASE_URL}/donor/history`,
+        purpose: 'donation_completed_donor',
+        metadata: { matchId: match._id.toString() },
+      });
 
-      // Recipient Email
-      if (effectiveRecipient?.email) {
-        const recSubject = 'Your BloodWard blood request has been completed';
-        const recHtml = `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1E293B;">
-            <div style="background-color: #315B83; padding: 16px 24px; border-radius: 8px 8px 0 0; color: #ffffff;">
-              <h2 style="margin: 0; font-size: 20px;">BloodWard — Request Completed</h2>
-            </div>
-            <div style="padding: 24px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 8px 8px; background-color: #ffffff;">
-              <p style="font-size: 15px; line-height: 1.5;">Dear <strong>${effectiveRecipient.fullName || 'Recipient'}</strong>,</p>
-              <p style="font-size: 14px; line-height: 1.5;">Your blood request for ${effectiveRequest?.bloodGroup || ''} at ${effectiveRequest?.hospitalName || 'hospital'} has been officially recorded as completed.</p>
-              <div style="margin: 24px 0; text-align: center;">
-                <a href="${CLIENT_BASE_URL}/recipient/requests" style="background-color: #315B83; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">View Completed Request</a>
-              </div>
+      if (donorResult && donorResult.success) {
+        donorSent = true;
+      } else {
+        donorError = donorResult?.error || 'Failed to dispatch donor completion email';
+        if (donorResult?.isUncertain) {
+          hasUncertainOutcome = true;
+        }
+      }
+    } else if (!effectiveDonor?.email) {
+      donorSent = true; // No donor email required
+    }
+
+    // 2. Recipient Email (if not already successfully confirmed)
+    if (effectiveRecipient?.email && !recipientSent) {
+      const recSubject = 'Your BloodWard blood request has been completed';
+      const recHtml = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1E293B;">
+          <div style="background-color: #315B83; padding: 16px 24px; border-radius: 8px 8px 0 0; color: #ffffff;">
+            <h2 style="margin: 0; font-size: 20px;">BloodWard — Request Completed</h2>
+          </div>
+          <div style="padding: 24px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 8px 8px; background-color: #ffffff;">
+            <p style="font-size: 15px; line-height: 1.5;">Dear <strong>${effectiveRecipient.fullName || 'Recipient'}</strong>,</p>
+            <p style="font-size: 14px; line-height: 1.5;">Your blood request for ${effectiveRequest?.bloodGroup || ''} at ${effectiveRequest?.hospitalName || 'hospital'} has been officially recorded as completed.</p>
+            <div style="margin: 24px 0; text-align: center;">
+              <a href="${CLIENT_BASE_URL}/recipient/requests" style="background-color: #315B83; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">View Completed Request</a>
             </div>
           </div>
-        `;
-        await safeSendEmail({
-          to: effectiveRecipient.email,
-          subject: recSubject,
-          html: recHtml,
-          text: `BloodWard: Your blood request for ${effectiveRequest?.bloodGroup || ''} at ${effectiveRequest?.hospitalName || 'hospital'} is completed. View dashboard: ${CLIENT_BASE_URL}/recipient/requests`,
-          purpose: 'donation_completed_recipient',
-          metadata: { matchId: match._id.toString() },
-        });
-      }
+        </div>
+      `;
+      const recResult = await safeSendEmail({
+        to: effectiveRecipient.email,
+        subject: recSubject,
+        html: recHtml,
+        text: `BloodWard: Your blood request for ${effectiveRequest?.bloodGroup || ''} at ${effectiveRequest?.hospitalName || 'hospital'} is completed. View dashboard: ${CLIENT_BASE_URL}/recipient/requests`,
+        purpose: 'donation_completed_recipient',
+        metadata: { matchId: match._id.toString() },
+      });
 
-      await Match.updateOne({ _id: match._id }, { $set: { completionEmailSent: true } });
-    });
+      if (recResult && recResult.success) {
+        recipientSent = true;
+      } else {
+        recipientError = recResult?.error || 'Failed to dispatch recipient completion email';
+        if (recResult?.isUncertain) {
+          hasUncertainOutcome = true;
+        }
+      }
+    } else if (!effectiveRecipient?.email) {
+      recipientSent = true; // No recipient email required
+    }
+
+    const allSuccessful = donorSent && recipientSent;
+    const updateFields = {
+      'metadata.emailDispatchInProgress': false,
+      'metadata.donorCompletionEmailSent': donorSent,
+      'metadata.recipientCompletionEmailSent': recipientSent,
+      'metadata.lastCompletionEmailAttempt': new Date(),
+    };
+
+    if (donorError) updateFields['metadata.donorCompletionEmailError'] = donorError;
+    if (recipientError) updateFields['metadata.recipientCompletionEmailError'] = recipientError;
+    if (hasUncertainOutcome) updateFields['metadata.completionEmailUncertain'] = true;
+
+    // Only mark completionEmailSent after the email provider confirms successful acceptance
+    // and neither recipient had an uncertain delivery outcome!
+    if (allSuccessful && !hasUncertainOutcome) {
+      updateFields.completionEmailSent = true;
+      updateFields['metadata.completionEmailUncertain'] = false;
+      updateFields['metadata.completionEmailSentAt'] = new Date();
+    } else {
+      updateFields.completionEmailSent = false;
+    }
+
+    await Match.updateOne({ _id: matchId }, { $set: updateFields });
+
+    return {
+      success: allSuccessful && !hasUncertainOutcome,
+      donorSent,
+      recipientSent,
+      hasUncertainOutcome,
+      donorError,
+      recipientError,
+    };
+  } catch (err) {
+    console.error('[MatchNotificationService] Error in dispatchCompletionEmails:', err.message);
+    await Match.updateOne(
+      { _id: matchId },
+      {
+        $set: {
+          'metadata.emailDispatchInProgress': false,
+          'metadata.lastCompletionEmailError': err.message,
+          completionEmailSent: false,
+        },
+      }
+    );
+    return {
+      success: false,
+      error: err.message,
+    };
   }
 }
+
+export { dispatchCompletionEmails as retryCompletionEmail };

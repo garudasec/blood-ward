@@ -1,4 +1,4 @@
-import { seedVerifiedEmailOtp } from './testDb.js';
+import './testDb.js';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -80,7 +80,6 @@ async function runTests() {
   await User.deleteMany({ email: 'donor_avail_persist@bloodward.test' });
 
   // 1. Register Donor
-  await seedVerifiedEmailOtp('donor_avail_persist@bloodward.test');
   const regRes = await request('/api/auth/register/donor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

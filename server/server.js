@@ -73,7 +73,11 @@ if (trustProxyHops !== false) {
   app.set("trust proxy", trustProxyHops);
 }
 
-app.use(helmet());
+app.use(
+  helmet({
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  })
+);
 app.use(sanitizeMiddleware);
 
 const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";

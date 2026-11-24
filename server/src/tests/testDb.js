@@ -48,9 +48,6 @@ export function enforceTestEnvironment() {
   if (!process.env.ENCRYPTION_SECRET) {
     process.env.ENCRYPTION_SECRET = 'e4d7a8c39f15024b8932c0d9a6e11894a73b2210fe58679124ab8312d90ef014';
   }
-  if (!process.env.OTP_HMAC_SECRET) {
-    process.env.OTP_HMAC_SECRET = 'f7c2b5e19a4d830628e94a1d7f502c3b8e9142f703a65c9182d4b70e13589cf2';
-  }
   const testUri = getTestMongoUri();
 
   // Redirect MONGODB_URI to testUri so any legacy code reading MONGODB_URI connects to test DB
@@ -96,30 +93,6 @@ export async function connectTestDB() {
   const dbName = conn.connection.name || getDatabaseNameFromUri(testUri);
   console.log(`[TEST DB] Connected safely to isolated test database: ${dbName}`);
   return conn;
-}
-
-/**
- * Pre-seeds a verified, unconsumed registration OTP record for an email.
- * Used by existing test suites that test domain logic (e.g. DOB, gender, geo-distance)
- * to legitimately satisfy mandatory registration email verification.
- */
-export async function seedVerifiedEmailOtp(email) {
-  const Otp = mongoose.models.Otp || (await import('../models/otp.model.js')).default;
-  const normalized = email.toLowerCase().trim();
-  const now = new Date();
-  await Otp.deleteMany({ target: normalized, purpose: 'verification' });
-  return Otp.create({
-    target: normalized,
-    targetType: 'email',
-    purpose: 'verification',
-    otpHash: 'test_preseeded_hash_verified',
-    isUsed: true,
-    isVerified: true,
-    verifiedAt: now,
-    usedAt: now,
-    resendAvailableAt: now,
-    expiresAt: new Date(now.getTime() + 30 * 60 * 1000),
-  });
 }
 
 // Automatically enforce test environment when testDb.js is imported

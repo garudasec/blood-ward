@@ -36,6 +36,9 @@ const testSuites = [
   { name: "Public Complaints Suite", file: "run_public_complaints_tests.js" },
   { name: "Match & 45-Day Cleanup Suite", file: "run_match_and_cleanup_tests.js" },
   { name: "Direct Registration, Password Reset & Match Notifications", file: "run_direct_registration_reset_and_match_tests.js" },
+  { name: "System Admin Notification Centre", file: "run_admin_notification_center_tests.js" },
+  { name: "QA Match Corrections Suite", file: "run_qa_corrections_regression_tests.js" },
+  { name: "Match Fulfillment & Email Delivery Suite", file: "run_phase1_fulfillment_email_tests.js" },
 ];
 
 async function runSingleSuite(suite) {
@@ -80,7 +83,7 @@ async function runSingleSuite(suite) {
         }
       }
 
-      resolve({ name: suite.name, passed, total, code });
+      resolve({ name: suite.name, passed, total, code, output });
     });
   });
 }
@@ -109,6 +112,9 @@ async function runAll() {
   for (const r of results) {
     const padName = r.name.padEnd(30, " ");
     console.log(`${padName} ${r.passed} / ${r.total}${r.code !== 0 ? ` (exit: ${r.code})` : ''}`);
+    if (r.code !== 0 || r.passed < r.total) {
+      console.log(`\n--- [FAILED SUITE: ${r.name}] Output ---\n${r.output}\n--------------------------------------------------\n`);
+    }
   }
   console.log("--------------------------------------------------");
   console.log(`TOTAL                         ${grandPassed} / ${grandTotal}`);

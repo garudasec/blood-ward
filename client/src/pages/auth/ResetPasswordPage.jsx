@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Lock, CheckCircle2, ShieldAlert, ArrowLeft, KeyRound } from "lucide-react";
 import Input from "../../components/common/Input";
@@ -6,7 +6,8 @@ import Button from "../../components/common/Button";
 import { authService } from "../../services/authService";
 
 export default function ResetPasswordPage() {
-  const { token } = useParams();
+  const { token: routeToken } = useParams();
+  const [token] = useState(routeToken || "");
   const navigate = useNavigate();
 
   const [password, setPassword] = useState("");
@@ -15,6 +16,56 @@ export default function ResetPasswordPage() {
   const [serverError, setServerError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  useEffect(() => {
+    // Dynamically enforce no-referrer policy on the reset page for defense-in-depth token protection
+    let meta = document.querySelector('meta[name="referrer"]');
+    const originalPolicy = meta ? meta.content : "strict-origin-when-cross-origin";
+
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "referrer";
+      meta.content = "no-referrer";
+      document.head.appendChild(meta);
+    } else {
+      meta.content = "no-referrer";
+    }
+
+    // Scrub token from the browser address bar and history to prevent leakage to third-party scripts or extensions
+    if (window.history && window.history.replaceState && routeToken) {
+      window.history.replaceState({ hasToken: true }, document.title, "/reset-password");
+    }
+
+    return () => {
+      // Restore standard referrer policy on unmount so subsequent pages (such as maps) function properly
+      if (meta) {
+        meta.content = originalPolicy;
+      }
+    };
+  }, [routeToken]);
+
+  if (!token) {
+    return (
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4 sm:p-6 bg-[#F8FAFC]">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-[#E2E8F0] p-6 sm:p-8 space-y-6 text-center">
+          <div className="w-12 h-12 bg-[#FEF2F2] rounded-xl flex items-center justify-center mx-auto text-[#DC2626]">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <h1 className="text-xl font-bold text-[#1E293B]">Invalid or Expired Link</h1>
+          <p className="text-xs sm:text-sm text-[#64748B]">
+            Password reset tokens are single-use and time-limited. Please request a new password reset link.
+          </p>
+          <div className="pt-2">
+            <Link to="/forgot-password">
+              <Button variant="primary" className="text-xs font-semibold py-2 px-4">
+                Request Reset Link
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const validate = () => {
     const errs = {};

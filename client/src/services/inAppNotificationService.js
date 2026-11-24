@@ -27,4 +27,12 @@ export const inAppNotificationService = {
       throw error.response?.data || { message: "Failed to mark all notifications read" };
     }
   },
+
+  async markAsRead(id) {
+    return this.markRead(id);
+  },
+
+  async markAllAsRead() {
+    return this.markAllRead();
+  },
 };

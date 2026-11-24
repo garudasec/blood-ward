@@ -1,4 +1,4 @@
-import { seedVerifiedEmailOtp } from './testDb.js';
+import './testDb.js';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -114,7 +114,6 @@ async function runTests() {
     assert(adminLoginRes.status === 200, 'Admin logged in successfully');
 
     // 2. Register Hospital Rep 1 (Hospital Auto-Creation)
-    await seedVerifiedEmailOtp(rep1Email);
     const rep1Res = await fetch(`${baseUrl}/api/auth/register/recipient`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -144,7 +143,6 @@ async function runTests() {
     hospitalMongoId = createdHospital._id.toString();
 
     // 3. Register Hospital Rep 2 for the SAME hospital (Preventing Duplicate Hospital)
-    await seedVerifiedEmailOtp(rep2Email);
     const rep2Res = await fetch(`${baseUrl}/api/auth/register/recipient`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -223,7 +221,6 @@ async function runTests() {
     assert(createdBloodRequest.patientDetails.name === 'Sunil Verma', 'BloodRequest patientDetails snapshot stored');
 
     // 6. Register Patient User & Claim Patient Record
-    await seedVerifiedEmailOtp(patientUserEmail);
     const patientUserRes = await fetch(`${baseUrl}/api/auth/register/recipient`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -269,7 +266,6 @@ async function runTests() {
     assert(reuseClaimRes.status === 409 || reuseClaimRes.status === 400, 'Reused claim code rejected');
 
     // 7. Register Family Member & Request Family Access
-    await seedVerifiedEmailOtp(familyUserEmail);
     const familyUserRes = await fetch(`${baseUrl}/api/auth/register/recipient`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -306,7 +302,6 @@ async function runTests() {
     assert(approveFamilyRes.status === 200, 'Patient approved family access');
 
     // Register an unrelated stranger
-    await seedVerifiedEmailOtp(strangerEmail);
     const strangerRes = await fetch(`${baseUrl}/api/auth/register/recipient`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -1,4 +1,4 @@
-import { seedVerifiedEmailOtp } from './testDb.js';
+import './testDb.js';
 import http from 'http';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -75,7 +75,6 @@ const run = async () => {
     // -------------------------------------------------------------------------
 
     // 1. Register Delhi Recipient (Needs O+ blood)
-    await seedVerifiedEmailOtp(`p3_rec_${ts}@bloodward.test`);
     const recRes = await fetch(`${baseUrl}/auth/register/recipient`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -96,7 +95,6 @@ const run = async () => {
     record('1. Recipient registers with location (State=Delhi, City=New Delhi)', recRes.status === 201 && recData.user.city === 'New Delhi');
 
     // 2. Register Delhi Compatible Donor (O+, Available, near 28.6139, 77.2090)
-    await seedVerifiedEmailOtp(`p3_d_delhi_${ts}@bloodward.test`);
     const d1Res = await fetch(`${baseUrl}/auth/register/donor`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -127,7 +125,6 @@ const run = async () => {
     record('2. Register compatible donor in Delhi (O+, Available)', d1Res.status === 201);
 
     // 3. Register Mumbai Compatible Donor (O+, Available, >1000km away)
-    await seedVerifiedEmailOtp(`p3_d_mumbai_${ts}@bloodward.test`);
     const d2Res = await fetch(`${baseUrl}/auth/register/donor`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -149,7 +146,6 @@ const run = async () => {
     record('3. Register compatible donor in Mumbai (O+, Available, outside 20km)', d2Res.status === 201);
 
     // 4. Register Incompatible Donor in Delhi (AB+, Available)
-    await seedVerifiedEmailOtp(`p3_d_incomp_${ts}@bloodward.test`);
     const d3Res = await fetch(`${baseUrl}/auth/register/donor`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -170,7 +166,6 @@ const run = async () => {
     record('4. Register clinically incompatible donor in Delhi (AB+, Available)', d3Res.status === 201);
 
     // 5. Register Unavailable Compatible Donor in Delhi (O+, Not Available)
-    await seedVerifiedEmailOtp(`p3_d_unavail_${ts}@bloodward.test`);
     const d4Res = await fetch(`${baseUrl}/auth/register/donor`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -278,7 +273,6 @@ const run = async () => {
     );
 
     // 13. Register a second compatible Delhi donor for race-condition testing
-    await seedVerifiedEmailOtp(`p3_compete_${ts}@bloodward.test`);
     const d1bRes = await fetch(`${baseUrl}/auth/register/donor`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -427,7 +421,6 @@ const run = async () => {
     );
 
     // 27. Hospital representative verification enforcement & audit trail
-    await seedVerifiedEmailOtp(`p3_hosp_${ts}@bloodward.test`);
     const hospRepRes = await fetch(`${baseUrl}/auth/register/recipient`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

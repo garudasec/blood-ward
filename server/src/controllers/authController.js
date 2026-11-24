@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import Hospital from "../models/hospital.model.js";
@@ -6,7 +7,8 @@ import AppError from "../utils/appError.js";
 import { logAuditEvent } from "../utils/auditLogger.js";
 import { generateHospitalId } from "../utils/idGenerator.js";
 import { ALLOWED_GENDERS, isValidPincode, normalizeIndianPhone, validateDonorDOB } from "../utils/validators.js";
-import { sendPasswordResetEmail, isEmailConfigured } from "../utils/emailService.js";
+import { sendPasswordResetEmail } from "../utils/emailService.js";
+import { notifyAdminsOfNewDonor, notifyAdminsOfNewRecipient } from "../services/adminNotificationService.js";
 
 const signToken = (id, role, tokenVersion = 0) => {
   const secret = process.env.JWT_SECRET;
@@ -160,6 +162,10 @@ export const registerDonor = async (req, res, next) => {
       severity: "NORMAL",
     });
 
+    notifyAdminsOfNewDonor(newUser).catch((err) => {
+      console.warn("[AuthController] Admin notification error on donor registration:", err.message);
+    });
+
     sendTokenResponse(newUser, 201, res, "Donor registration successful.");
   } catch (error) {
     if (error.code === 11000) {
@@ -276,6 +282,10 @@ export const registerRecipient = async (req, res, next) => {
       ipAddress: req.ip,
       severity: "NORMAL",
       details: isHospitalRep ? `Hospital representative registered for ${hospitalName.trim()} (Pending Verification).` : "Individual recipient registered.",
+    });
+
+    notifyAdminsOfNewRecipient(newUser, isHospitalRep, isHospitalRep ? hospitalName.trim() : "").catch((err) => {
+      console.warn("[AuthController] Admin notification error on recipient registration:", err.message);
     });
 
     sendTokenResponse(newUser, 201, res, isHospitalRep ? "Hospital representative registration submitted. Account is pending verification." : "Recipient registration successful.");
@@ -629,29 +639,38 @@ export const forgotPassword = async (req, res, next) => {
       return next(new AppError("Please provide a valid email address.", 400));
     }
 
+    // Always perform cryptographic token and hash generation to equalize computational workload
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
     const normalizedEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
 
-    // Timing-safe response: Always return identical generic success message even if email not found
+    // Timing-safe response: simulate DB write + processing latency to prevent account enumeration
     if (!user) {
+      const jitterMs = process.env.NODE_ENV === "test" ? 15 + (crypto.randomBytes(1)[0] % 15) : 70 + (crypto.randomBytes(1)[0] % 40);
+      await new Promise((resolve) => setTimeout(resolve, jitterMs));
+
       return res.status(200).json({
         success: true,
         message: "If an account matches that email, instructions to reset your password have been sent.",
       });
     }
 
-    // Generate random 32-byte token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    // Store SHA-256 hash in database
-    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
-
     // Token expires in 15 minutes
     user.passwordResetToken = hashedToken;
     user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
-    // Fully qualified reset URL sent strictly via email transport
-    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    // Enforce HTTPS for production CLIENT_URL
+    let clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    if (process.env.NODE_ENV === "production") {
+      if (clientUrl.startsWith("http://")) {
+        clientUrl = clientUrl.replace(/^http:\/\//i, "https://");
+      } else if (!clientUrl.startsWith("https://")) {
+        clientUrl = `https://${clientUrl}`;
+      }
+    }
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     logAuditEvent({
@@ -676,7 +695,7 @@ export const forgotPassword = async (req, res, next) => {
       // Invalidate the generated token if delivery threw an unhandled network error
       user.passwordResetToken = null;
       user.passwordResetExpires = null;
-      await user.save({ validateBeforeSave: false }).catch(() => {});
+      await user.save({ validateBeforeSave: false }).catch(() => { });
 
       // Privately log delivery failure without leaking internal provider error or account existence
       console.error(`[ForgotPassword] Outbound delivery error (suppressed to prevent account enumeration): ${mailError.message}`);
@@ -693,12 +712,16 @@ export const forgotPassword = async (req, res, next) => {
       });
 
       // Indistinguishable public HTTP 200 response to prevent account enumeration
+      res.set("Referrer-Policy", "no-referrer");
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
       return res.status(200).json({
         success: true,
         message: "If an account matches that email, instructions to reset your password have been sent.",
       });
     }
 
+    res.set("Referrer-Policy", "no-referrer");
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.status(200).json({
       success: true,
       message: "If an account matches that email, instructions to reset your password have been sent.",
@@ -733,22 +756,34 @@ export const resetPassword = async (req, res, next) => {
     // Hash the token from parameter to find matching user
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
-    const user = await User.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: Date.now() },
-    }).select("+password");
+    // Concurrency-safe atomic token consumption:
+    // Pre-hash password with bcrypt to maintain matching salt/cost
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Atomically find user matching valid unexpired token and consume token in one operation
+    const user = await User.findOneAndUpdate(
+      {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: { $gt: Date.now() },
+      },
+      {
+        $set: {
+          password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpires: null,
+          passwordChangedAt: new Date(),
+        },
+        $inc: {
+          tokenVersion: 1,
+        },
+      },
+      { returnDocument: "after", runValidators: true }
+    );
 
     if (!user) {
       return next(new AppError("Password reset token is invalid or has expired.", 400));
     }
-
-    // Set new password and invalidate prior sessions
-    user.password = password;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
-    user.passwordChangedAt = new Date();
-    user.tokenVersion = (user.tokenVersion || 0) + 1;
-    await user.save();
 
     logAuditEvent({
       actor: user._id,
@@ -760,6 +795,9 @@ export const resetPassword = async (req, res, next) => {
       severity: "NORMAL",
       details: `Password successfully reset for ${user.email}.`,
     });
+
+    res.set("Referrer-Policy", "no-referrer");
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
 
     res.status(200).json({
       success: true,

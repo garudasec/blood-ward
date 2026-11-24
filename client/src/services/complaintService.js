@@ -11,6 +11,16 @@ export const complaintService = {
     }
   },
 
+  // Track a public complaint status by reference ID (unauthenticated)
+  async trackPublicComplaint(complaintId) {
+    try {
+      const response = await api.get(`/complaints/public/track/${complaintId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to track complaint' };
+    }
+  },
+
   // Submit a complaint (patient or authorized family member)
   async submitComplaint(complaintData) {
     try {

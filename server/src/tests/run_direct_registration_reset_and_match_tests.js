@@ -33,7 +33,11 @@ dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-app.use(helmet());
+app.use(
+  helmet({
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  })
+);
 app.use(sanitizeMiddleware);
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 app.use(express.json({ limit: '10kb' }));
@@ -121,6 +125,14 @@ async function run() {
     assert(regData.user.email === donorPayload.email, "Registered donor email matches");
     assert(regData.user.isEmailVerified === false, "isEmailVerified is strictly false (no fake emailVerified flag)");
     assert(regData.user.emailVerifiedAt === null, "emailVerifiedAt is null");
+    assert(
+      regRes.headers.get("referrer-policy") === "strict-origin-when-cross-origin",
+      "Normal route includes Referrer-Policy: strict-origin-when-cross-origin"
+    );
+    assert(
+      regRes.headers.get("x-content-type-options") === "nosniff",
+      "Helmet X-Content-Type-Options: nosniff preserved"
+    );
 
     // 1.2 Verify database record directly
     const donorInDb = await User.findOne({ email: donorPayload.email }).select("+password");
@@ -243,6 +255,14 @@ async function run() {
     const forgotData = await forgotRes.json();
 
     assert(forgotRes.status === 200, "Forgot password request for valid user returns HTTP 200");
+    assert(
+      forgotRes.headers.get("referrer-policy") === "no-referrer",
+      "Forgot password response includes Referrer-Policy: no-referrer"
+    );
+    assert(
+      forgotRes.headers.get("cache-control")?.includes("no-store"),
+      "Forgot password response includes Cache-Control: no-store"
+    );
     assert(forgotData.testResetToken !== undefined, "Test reset token returned in test environment");
 
     const rawToken = forgotData.testResetToken;
@@ -266,6 +286,10 @@ async function run() {
       body: JSON.stringify({ password: "BrandNewPassword999!", confirmPassword: "BrandNewPassword999!" }),
     });
     assert(badTokenRes.status === 400, "Invalid reset token returns HTTP 400");
+    assert(
+      badTokenRes.headers.get("referrer-policy") === "no-referrer",
+      "Invalid token error response includes Referrer-Policy: no-referrer"
+    );
 
     // 3.5 Token expiration enforcement
     donorAfterForgot.passwordResetExpires = new Date(Date.now() - 5000); // Set to past
@@ -320,6 +344,8 @@ async function run() {
 
     assert(resetSuccessRes.status === 200, "Valid password reset returns HTTP 200");
     assert(resetSuccessData.success === true, "Password reset response indicates success");
+    assert(resetSuccessRes.headers.get("referrer-policy") === "no-referrer", "Reset response includes Referrer-Policy: no-referrer");
+    assert(resetSuccessRes.headers.get("cache-control")?.includes("no-store"), "Reset response includes Cache-Control: no-store");
 
     // 3.9 Single-use enforcement (reusing same token fails)
     const replayRes = await fetch(`${baseUrl}/auth/reset-password/${rawToken}`, {
@@ -368,7 +394,36 @@ async function run() {
       "authMiddleware returns session invalidation message: 'Password recently changed. Please log in again with your new password.'"
     );
 
-    // 3.14 Indistinguishable response and account enumeration prevention on email delivery failure
+    // 3.14 Concurrency protection: Two simultaneous requests using the same reset token must not both succeed
+    const forgotConcurrRes = await fetch(`${baseUrl}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: donorPayload.email }),
+    });
+    const forgotConcurrData = await forgotConcurrRes.json();
+    const concurrToken = forgotConcurrData.testResetToken;
+    assert(typeof concurrToken === "string" && concurrToken.length === 64, "Obtained fresh reset token for concurrency test");
+
+    const [concurrReq1, concurrReq2] = await Promise.all([
+      fetch(`${baseUrl}/auth/reset-password/${concurrToken}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: "ConcurrentPass1!", confirmPassword: "ConcurrentPass1!" }),
+      }),
+      fetch(`${baseUrl}/auth/reset-password/${concurrToken}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: "ConcurrentPass2!", confirmPassword: "ConcurrentPass2!" }),
+      }),
+    ]);
+
+    const concurrStatuses = [concurrReq1.status, concurrReq2.status].sort();
+    assert(
+      concurrStatuses[0] === 200 && concurrStatuses[1] === 400,
+      `Concurrency protection: Exactly one concurrent reset succeeds (200) and the other fails (400), got [${concurrStatuses.join(", ")}]`
+    );
+
+    // 3.15 Indistinguishable response and account enumeration prevention on email delivery failure
     const originalNotificationSendEmail = notificationManager.sendEmail.bind(notificationManager);
     await NotificationProvider.create({
       providerType: 'email',
@@ -644,12 +699,17 @@ async function run() {
     // Restore original sendEmail
     notificationManager.sendEmail = originalSendEmail;
 
+    // Allow pending background tasks to settle before disconnecting
+    await new Promise((r) => setTimeout(r, 300));
+
     console.log(`\n==================================================`);
     console.log(`FINAL RESULTS: ${passed}/${total} PASS`);
     console.log(`==================================================\n`);
   } finally {
     if (server) server.close();
-    await mongoose.connection.close();
+    try {
+      await mongoose.disconnect();
+    } catch {}
   }
 }
 

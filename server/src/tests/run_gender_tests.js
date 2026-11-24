@@ -1,4 +1,4 @@
-import { seedVerifiedEmailOtp } from './testDb.js';
+import './testDb.js';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -109,7 +109,6 @@ async function runTests() {
   }
 
   // 1. Donor registration with Male
-  await seedVerifiedEmailOtp('donor_male_gendertest@bloodward.test');
   const donorMaleRes = await request('/api/auth/register/donor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -126,7 +125,6 @@ async function runTests() {
   assert('1. Donor registration with Male', donorMaleRes.status === 201 && donorMaleRes.data.user.gender === 'Male', JSON.stringify(donorMaleRes.data));
 
   // 2. Donor registration with Female
-  await seedVerifiedEmailOtp('donor_female_gendertest@bloodward.test');
   const donorFemaleRes = await request('/api/auth/register/donor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -143,7 +141,6 @@ async function runTests() {
   assert('2. Donor registration with Female', donorFemaleRes.status === 201 && donorFemaleRes.data.user.gender === 'Female', JSON.stringify(donorFemaleRes.data));
 
   // 2b. Donor registration with Non-binary
-  await seedVerifiedEmailOtp('donor_nonbinary_gendertest@bloodward.test');
   const donorNonBinaryRes = await request('/api/auth/register/donor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -160,7 +157,6 @@ async function runTests() {
   assert('2b. Donor registration with Non-binary', donorNonBinaryRes.status === 201 && donorNonBinaryRes.data.user.gender === 'Non-binary', JSON.stringify(donorNonBinaryRes.data));
 
   // 3. Recipient registration with Other
-  await seedVerifiedEmailOtp('rec_other_gendertest@bloodward.test');
   const recOtherRes = await request('/api/auth/register/recipient', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -175,7 +171,6 @@ async function runTests() {
   assert('3. Recipient registration with Other', recOtherRes.status === 201 && recOtherRes.data.user.gender === 'Other', JSON.stringify(recOtherRes.data));
 
   // 4. Registration with Prefer not to say
-  await seedVerifiedEmailOtp('donor_prefer_gendertest@bloodward.test');
   const donorPreferRes = await request('/api/auth/register/donor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

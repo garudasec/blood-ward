@@ -1,4 +1,4 @@
-import { seedVerifiedEmailOtp } from './testDb.js';
+import './testDb.js';
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -85,7 +85,6 @@ async function runTests() {
 
     try {
       // Setup Recipient (Delhi)
-      await seedVerifiedEmailOtp(recipientEmail);
       const recReg = await fetch(`${baseUrl}/auth/register/recipient`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,7 +100,6 @@ async function runTests() {
       recCookie = recReg.headers.get("set-cookie");
 
       // Setup Donor 1 (Delhi, Available, O+)
-      await seedVerifiedEmailOtp(donor1Email);
       const d1Reg = await fetch(`${baseUrl}/auth/register/donor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -124,7 +122,6 @@ async function runTests() {
       });
 
       // Setup Donor 2 (Delhi, Available, O+)
-      await seedVerifiedEmailOtp(donor2Email);
       const d2Reg = await fetch(`${baseUrl}/auth/register/donor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -147,7 +144,6 @@ async function runTests() {
       });
 
       // Setup Far Donor (Mumbai, Available, O+)
-      await seedVerifiedEmailOtp(farDonorEmail);
       const farReg = await fetch(`${baseUrl}/auth/register/donor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -170,7 +166,6 @@ async function runTests() {
       });
 
       // Setup Donor with NO location / city
-      await seedVerifiedEmailOtp(noLocDonorEmail);
       const noLocReg = await fetch(`${baseUrl}/auth/register/donor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
