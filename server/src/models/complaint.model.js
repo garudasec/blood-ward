@@ -32,13 +32,15 @@ const complaintSchema = new mongoose.Schema(
     patient: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Patient',
-      required: true,
+      required: false,
+      default: null,
       index: true,
     },
     hospital: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Hospital',
-      required: true,
+      required: false,
+      default: null,
       index: true,
     },
     bloodRequest: {
@@ -57,7 +59,7 @@ const complaintSchema = new mongoose.Schema(
     },
     complainantType: {
       type: String,
-      enum: ['patient', 'family_member', 'donor', 'public'],
+      enum: ['patient', 'family_member', 'recipient', 'donor', 'public'],
       default: 'public',
       required: true,
     },
@@ -123,6 +125,12 @@ const complaintSchema = new mongoose.Schema(
 );
 
 complaintSchema.index({ bloodRequest: 1, complainant: 1 }, { sparse: true });
+
+complaintSchema.pre('validate', function () {
+  if (!this.bloodRequest && (!this.patient || !this.hospital)) {
+    throw new Error('A complaint must reference either a BloodRequest or both a Patient and Hospital.');
+  }
+});
 
 const Complaint = mongoose.model('Complaint', complaintSchema);
 

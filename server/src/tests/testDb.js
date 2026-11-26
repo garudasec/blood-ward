@@ -1,5 +1,6 @@
 import dns from 'dns';
 dns.setServers(['1.1.1.1', '8.8.8.8']);
+import fs from 'fs';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -104,6 +105,11 @@ export async function connectTestDB() {
  * to legitimately satisfy mandatory registration email verification.
  */
 export async function seedVerifiedEmailOtp(email) {
+  const otpModelPath = path.resolve(__dirname, '../models/otp.model.js');
+  if (!fs.existsSync(otpModelPath)) {
+    // Registration OTP was removed; return null cleanly for legacy test callers.
+    return null;
+  }
   const Otp = mongoose.models.Otp || (await import('../models/otp.model.js')).default;
   const normalized = email.toLowerCase().trim();
   const now = new Date();

@@ -209,6 +209,12 @@ export default function AdminComplaintDetailModal({
                 <div className="text-[11px] text-[#A61B2B] font-medium">
                   {complaint.complainantType === 'family_member'
                     ? `Family Member (${complaint.familyRelationship || 'Relative'})`
+                    : complaint.complainantType === 'donor'
+                    ? 'Voluntary Donor'
+                    : complaint.complainantType === 'recipient'
+                    ? 'Recipient / Request Owner'
+                    : complaint.complainantType === 'public'
+                    ? 'Public Reporter'
                     : 'Primary Patient'}
                 </div>
               </div>
@@ -219,10 +225,10 @@ export default function AdminComplaintDetailModal({
                   <Building2 className="w-3.5 h-3.5 text-[#A61B2B]" />
                   Hospital
                 </div>
-                <div>{complaint.hospital?.name || 'Hospital Entity'}</div>
-                <div className="text-zinc-500">{complaint.hospital?.city || 'Location'}</div>
+                <div>{complaint.hospital?.name || complaint.bloodRequest?.hospitalName || 'Hospital Entity'}</div>
+                <div className="text-zinc-500">{complaint.hospital?.city || complaint.bloodRequest?.city || 'Location N/A'}</div>
                 <div className="text-[11px] font-mono text-zinc-400">
-                  ID: {complaint.hospital?.hospitalId || 'BW-HSP'}
+                  {complaint.hospital?.hospitalId ? `ID: ${complaint.hospital.hospitalId}` : 'Request-reported facility'}
                 </div>
               </div>
 
@@ -230,14 +236,18 @@ export default function AdminComplaintDetailModal({
               <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-zinc-900 dark:text-zinc-100">
                   <Heart className="w-3.5 h-3.5 text-rose-600" />
-                  Patient Subject
+                  Patient / Recipient Subject
                 </div>
-                <div>{complaint.patient?.name || 'Patient'} ({complaint.patient?.bloodGroup})</div>
+                <div>
+                  {complaint.patient?.name || complaint.bloodRequest?.recipientName || 'Recipient'} ({complaint.patient?.bloodGroup || complaint.bloodRequest?.bloodGroup || 'N/A'})
+                </div>
                 <div className="text-zinc-500">
-                  Reg #: {complaint.patient?.hospitalRegistrationNumber || 'N/A'} • Ward: {complaint.patient?.wardDepartment || 'N/A'}
+                  {complaint.patient
+                    ? `Reg #: ${complaint.patient.hospitalRegistrationNumber || 'N/A'} • Ward: ${complaint.patient.wardDepartment || 'N/A'}`
+                    : 'Direct Recipient Blood Request'}
                 </div>
                 <div className="text-[11px] font-mono text-zinc-400">
-                  ID: {complaint.patient?.patientId || 'BW-PAT'}
+                  {complaint.patient?.patientId ? `ID: ${complaint.patient.patientId}` : 'No linked Patient ID'}
                 </div>
               </div>
 

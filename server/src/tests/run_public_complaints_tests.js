@@ -10,6 +10,7 @@ import connectDB from '../config/db.js';
 import User from '../models/user.model.js';
 import Hospital from '../models/hospital.model.js';
 import Patient from '../models/patient.model.js';
+import BloodRequest from '../models/bloodRequest.js';
 import Complaint from '../models/complaint.model.js';
 import AuditLog from '../models/auditLog.js';
 
@@ -287,6 +288,188 @@ async function runTests() {
     });
     assert(auditRecord !== null, 'Audit log created for SUBMIT_PUBLIC_COMPLAINT');
     assert(auditRecord.category === 'RECIPIENT_ACTION', 'Audit log category is RECIPIENT_ACTION');
+
+    console.log('\n--- 6. Request-Linked Complaints & Null Patient/Hospital Regression Tests ---');
+    // Seed recipient owner, claimed patient user, and unauthorized user
+    await BloodRequest.deleteMany({ hospitalName: /Public Complaint Test Hospital/i });
+
+    const recipientOwner = await User.create({
+      fullName: 'Recipient Owner Test',
+      email: 'recip.owner@test-public-complaints.com',
+      phone: '9876500021',
+      password: 'Password123!',
+      role: 'recipient',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+    });
+    const recipLogin = await request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'recip.owner@test-public-complaints.com', password: 'Password123!' }),
+    });
+    const recipCookie = recipLogin.headers.get('set-cookie');
+
+    const strangerUser = await User.create({
+      fullName: 'Stranger User Test',
+      email: 'stranger.user@test-public-complaints.com',
+      phone: '9876500022',
+      password: 'Password123!',
+      role: 'recipient',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+    });
+    const strangerLogin = await request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'stranger.user@test-public-complaints.com', password: 'Password123!' }),
+    });
+    const strangerCookie = strangerLogin.headers.get('set-cookie');
+
+    const claimedPatientUser = await User.create({
+      fullName: 'Claimed Patient User',
+      email: 'claimed.patient@test-public-complaints.com',
+      phone: '9876500023',
+      password: 'Password123!',
+      role: 'recipient',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+    });
+    patient1.claimedByUser = claimedPatientUser._id;
+    await patient1.save();
+    const claimedLogin = await request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'claimed.patient@test-public-complaints.com', password: 'Password123!' }),
+    });
+    const claimedCookie = claimedLogin.headers.get('set-cookie');
+
+    // 6.1 Hospital-created BloodRequest (with patient & hospital refs)
+    const hospBloodReq = await BloodRequest.create({
+      recipient: recipientOwner._id,
+      recipientName: 'Ramesh Sharma',
+      bloodGroup: 'B+',
+      unitsNeeded: 1,
+      hospitalName: 'Public Complaint Test Hospital One',
+      city: 'Mumbai',
+      requiredDate: '2026-12-30',
+      status: 'Active',
+      hospital: hospital1._id,
+      patient: patient1._id,
+    });
+
+    const hospComplaintRes = await request('/api/complaints', {
+      method: 'POST',
+      headers: { Cookie: claimedCookie },
+      body: JSON.stringify({
+        requestId: hospBloodReq._id.toString(),
+        complainantType: 'patient',
+        category: 'Hospital did not respond after donor acceptance',
+        description: 'Hospital-created request complaint auto-linked to patient and hospital records.',
+      }),
+    });
+    assert(hospComplaintRes.status === 201, 'Hospital-created request complaint succeeds via requestId alone');
+    assert(
+      hospComplaintRes.data.complaint?.patient?.toString() === patient1._id.toString() &&
+        hospComplaintRes.data.complaint?.hospital?.toString() === hospital1._id.toString(),
+      'Hospital-created complaint auto-links patient and hospital from BloodRequest'
+    );
+
+    // 6.2 Recipient-created BloodRequest (patient: null, hospital: null)
+    const recipBloodReq = await BloodRequest.create({
+      recipient: recipientOwner._id,
+      recipientName: 'Recipient Owner Test',
+      bloodGroup: 'O+',
+      unitsNeeded: 2,
+      hospitalName: 'Public Complaint Test Hospital Direct',
+      city: 'Mumbai',
+      requiredDate: '2026-12-30',
+      status: 'Active',
+      hospital: null,
+      patient: null,
+    });
+
+    // Unauthorized user attempting to report recipient's request must be rejected (403)
+    const unauthReqComplaint = await request('/api/complaints', {
+      method: 'POST',
+      headers: { Cookie: strangerCookie },
+      body: JSON.stringify({
+        requestId: recipBloodReq._id.toString(),
+        complainantType: 'recipient',
+        category: 'Other concern',
+        description: 'Unauthorized user attempting to file a complaint against another user blood request.',
+      }),
+    });
+    assert(unauthReqComplaint.status === 403, 'Unauthorized user cannot report another user blood request (403)');
+
+    // Request owner can submit complaint without Patient or Hospital records
+    const ownerReqComplaint = await request('/api/complaints', {
+      method: 'POST',
+      headers: { Cookie: recipCookie },
+      body: JSON.stringify({
+        requestId: recipBloodReq._id.toString(),
+        complainantType: 'recipient',
+        category: 'Incorrect information was provided',
+        description: 'Recipient owner reporting issue on direct blood request with null patient and hospital refs.',
+      }),
+    });
+    assert(ownerReqComplaint.status === 201, 'Recipient-created request complaint succeeds without Patient/Hospital records');
+    assert(
+      ownerReqComplaint.data.complaint?.patient === null && ownerReqComplaint.data.complaint?.hospital === null,
+      'Null patient and hospital references preserved cleanly without fake records'
+    );
+
+    // 6.3 Admin details with null Patient/Hospital references
+    const adminDirectDetail = await request(`/api/complaints/${ownerReqComplaint.data.complaint._id}`, {
+      method: 'GET',
+      headers: { Cookie: adminCookie },
+    });
+    assert(adminDirectDetail.status === 200, 'Admin can inspect complaint with null Patient/Hospital references');
+    assert(
+      adminDirectDetail.data.complaint?.bloodRequest?.hospitalName === 'Public Complaint Test Hospital Direct',
+      'Admin complaint detail includes BloodRequest hospitalName context'
+    );
+
+    // 6.4 Public complaint using Request Reference ID (with "REF #" prefix) + hospitalName verification
+    const pubReqRefRes = await request('/api/complaints/public', {
+      method: 'POST',
+      body: JSON.stringify({
+        requestReferenceId: `REF #${recipBloodReq._id.toString()}`,
+        hospitalName: 'public complaint test hospital direct',
+        category: 'Blood was not provided to the intended patient',
+        description: 'Public report filed using Request Reference ID and hospital name verification.',
+      }),
+    });
+    assert(pubReqRefRes.status === 201, 'Public complaint via Request Reference ID + hospitalName succeeds (201)');
+    assert(Boolean(pubReqRefRes.data.complaintReferenceId), 'Public Request Reference complaint returns BW-CMP-* tracking ID');
+
+    // Invalid request reference & mismatched hospital name rejected with generic 400
+    const badReqRefRes = await request('/api/complaints/public', {
+      method: 'POST',
+      body: JSON.stringify({
+        requestReferenceId: 'invalid-ref-id',
+        hospitalName: 'Public Complaint Test Hospital Direct',
+        description: 'Public report with invalid request reference ID format should fail cleanly.',
+      }),
+    });
+    assert(badReqRefRes.status === 400, 'Malformed Request Reference ID rejected with HTTP 400');
+
+    const mismatchHospRes = await request('/api/complaints/public', {
+      method: 'POST',
+      body: JSON.stringify({
+        requestReferenceId: recipBloodReq._id.toString(),
+        hospitalName: 'Wrong Unrelated Hospital Name',
+        description: 'Public report with mismatched hospital name verification should be rejected.',
+      }),
+    });
+    assert(mismatchHospRes.status === 400, 'Mismatched hospitalName verification rejected with HTTP 400');
+    assert(
+      badReqRefRes.data.message === mismatchHospRes.data.message,
+      'Anti-enumeration: invalid and mismatched Request Reference errors return identical generic message'
+    );
+
+    // 6.5 Existing public complaint tracking works for Request Reference complaints
+    const trackReqRefRes = await request(`/api/complaints/public/track/${pubReqRefRes.data.complaintReferenceId}`, {
+      method: 'GET',
+    });
+    assert(trackReqRefRes.status === 200, 'Public complaint tracking works for Request Reference ID complaints');
+    assert(trackReqRefRes.data.complaint?.status === 'Pending', 'Tracked public complaint shows Pending status');
 
     console.log('\n==================================================');
     console.log(`FINAL RESULTS: ${passed}/${passed + failed}`);
