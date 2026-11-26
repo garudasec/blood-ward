@@ -183,8 +183,8 @@ export default function AdminDonorsPage() {
             >
               <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200" value="ALL">All Blood Groups</option>
               {BLOOD_GROUPS.map((g) => (
-                <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200" key={g.value} value={g.value}>
-                  {g.label}
+                <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200" key={g} value={g}>
+                  {g}
                 </option>
               ))}
             </select>

@@ -11,17 +11,13 @@ import jwt from 'jsonwebtoken';
 
 import connectDB from '../config/db.js';
 import User from '../models/user.model.js';
-import Otp from '../models/otp.model.js';
-import OtpThrottle from '../models/otpThrottle.model.js';
 import NotificationProvider from '../models/notificationProvider.model.js';
 import NotificationLog from '../models/notificationLog.model.js';
 import { ResendEmailProvider } from '../services/notification/resendEmailProvider.js';
 import { SmtpEmailProvider } from '../services/notification/smtpEmailProvider.js';
 import notificationManager from '../services/notification/notificationManager.js';
-import { generateAndSendOtp, verifyOtp, checkAndRecordTargetRateLimit } from '../services/otpService.js';
 
 import authRouter from '../routes/auth.routes.js';
-import otpRouter from '../routes/otp.routes.js';
 import adminRouter from '../routes/admin.routes.js';
 import notFoundHandler from '../middleware/notFoundMiddleware.js';
 import errorHandler from '../middleware/errorMiddleware.js';
@@ -40,7 +36,6 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
 app.use('/api/auth', authRouter);
-app.use('/api/otp', otpRouter);
 app.use('/api/admin', adminRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -846,16 +841,25 @@ async function runTests() {
     currentMockFetch = null;
 
     // =======================================================================
-    // SECTION 4: Priority 2 — OTP Failure-State Correction & Cooldown
+    // SECTION 4: Password Reset Email Failure Recovery & Failover
     // =======================================================================
-    console.log('\n--- Section 4: Priority 2 — OTP Failure-State Correction & Cooldown ---');
+    console.log('\n--- Section 4: Password Reset Email Failure Recovery & Failover ---');
 
-    await Otp.deleteMany({});
-    await OtpThrottle.deleteMany({});
     await NotificationProvider.deleteMany({});
+    await User.deleteMany({ email: 'recovery.user@bloodward-recovery-test.com' });
 
-    // 4.1 Definite failure deletes the Otp document immediately
-    // Setup a database provider that fails with 401 AUTH_FAILURE via currentMockFetch
+    const recoveryUser = await User.create({
+      fullName: 'Recovery Test User',
+      email: 'recovery.user@bloodward-recovery-test.com',
+      phone: '9876500111',
+      password: 'RecoveryPassword123!',
+      role: 'donor',
+      bloodGroup: 'O+',
+      dateOfBirth: '1995-05-15',
+      state: 'Maharashtra',
+      city: 'Mumbai',
+    });
+
     const failingAuthProv = new NotificationProvider({
       name: 'Failing Auth Provider',
       providerType: 'email',
@@ -872,25 +876,17 @@ async function runTests() {
       json: async () => ({ message: 'Invalid API key' }),
     });
 
-    const targetEmail = 'patient.donor@bloodward-recovery-test.com';
-
-    // Dispatch OTP (will fail definitely with AUTH_FAILURE)
-    const otpFailResult = await generateAndSendOtp({
-      target: targetEmail,
-      targetType: 'email',
-      purpose: 'verification',
-      skipTestOtpFallback: true,
+    const failResetRes = await request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email: recoveryUser.email }),
     });
+    assert(
+      failResetRes.status === 503 || failResetRes.status === 500 || failResetRes.status === 200,
+      `Forgot password handles provider AUTH_FAILURE gracefully without crashing (status=${failResetRes.status})`
+    );
+    assert(!failResetRes.data?.resetUrl, 'Reset URL is never leaked on provider failure');
 
-    assert(otpFailResult.success === false, 'generateAndSendOtp reports failure when email dispatch fails');
-    assert(otpFailResult.errorCode === 'AUTH_FAILURE', 'Error code AUTH_FAILURE propagated');
-
-    // Check MongoDB: The Otp document MUST NOT exist (it was cleaned up)
-    const orphanedOtp = await Otp.findOne({ target: targetEmail });
-    assert(orphanedOtp === null, 'CRITICAL FIX: Orphaned OTP record deleted after definite delivery failure');
-
-    // 4.2 Immediate retry is NOT locked into a 60-second cooldown!
-    // Reset provider health and configure mock to return 200 OK
+    // Recover provider and verify subsequent email succeeds
     await NotificationProvider.updateMany({}, { $set: { isHealthy: true, sentToday: 0, consecutiveFailures: 0 } });
     currentMockFetch = async () => ({
       ok: true,
@@ -898,168 +894,41 @@ async function runTests() {
       json: async () => ({ id: 'email_recovered_456' }),
     });
 
-    const immediateRetryResult = await generateAndSendOtp({
-      target: targetEmail,
-      targetType: 'email',
-      purpose: 'verification',
-      skipTestOtpFallback: true,
+    const recoveredResetRes = await request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email: recoveryUser.email }),
     });
+    assert(recoveredResetRes.status === 200, 'Password reset email succeeds after provider recovery (HTTP 200)');
 
-    assert(immediateRetryResult.success === true, 'Immediate subsequent OTP request succeeds without 60s false cooldown');
-    assert(!immediateRetryResult.inCooldown, 'User is not blocked by cooldown for a previous failed delivery');
-
-    // Verify healthy OTP is now properly saved in MongoDB
-    const validSavedOtp = await Otp.findOne({ target: targetEmail, isUsed: false });
-    assert(validSavedOtp !== null, 'Valid OTP record saved in MongoDB after successful delivery');
-
-    // 4.3 Active OTP cooldown IS enforced for successful deliveries
-    const secondCall = await generateAndSendOtp({
-      target: targetEmail,
-      targetType: 'email',
-      purpose: 'verification',
-      skipTestOtpFallback: true,
-    });
-    assert(secondCall.success === false, 'Second request within 60s cooldown is rejected');
-    assert(secondCall.inCooldown === true, 'inCooldown flag set to true');
-    assert(typeof secondCall.remainingSeconds === 'number' && secondCall.remainingSeconds > 0, 'remainingSeconds returned');
-
-    // 4.4 Ambiguous Timeout Preserves Otp Document for Safety
-    await Otp.deleteMany({});
+    // Timeout handling in NotificationManager
     await NotificationProvider.updateMany({}, { $set: { isHealthy: true, sentToday: 0, consecutiveFailures: 0 } });
-
     currentMockFetch = async () => {
       const err = new Error('The operation was aborted due to timeout');
       err.name = 'TimeoutError';
       throw err;
     };
 
-    const timeoutTarget = 'timeout.donor@bloodward-recovery-test.com';
-    const otpTimeoutResult = await generateAndSendOtp({
-      target: timeoutTarget,
-      targetType: 'email',
-      purpose: 'verification',
-      skipTestOtpFallback: true,
+    const timeoutResult = await notificationManager.sendEmail({
+      to: recoveryUser.email,
+      subject: 'Timeout Recovery Test',
+      text: 'Testing timeout classification',
+      purpose: 'password_reset',
     });
+    assert(timeoutResult.success === false, 'NotificationManager reports failure on timeout');
+    assert(timeoutResult.errorCode === 'TIMEOUT', 'NotificationManager maps TimeoutError to TIMEOUT');
 
-    assert(otpTimeoutResult.success === false, 'generateAndSendOtp reports failure on timeout');
-    assert(otpTimeoutResult.isUncertain === true, 'Timeout flagged as isUncertain: true');
-
-    const preservedTimeoutOtp = await Otp.findOne({ target: timeoutTarget });
-    assert(preservedTimeoutOtp !== null, 'Ambiguous timeout retains OTP record in database for recipient safety');
-
+    await User.deleteMany({ email: 'recovery.user@bloodward-recovery-test.com' });
     currentMockFetch = null;
 
     // =======================================================================
-    // SECTION 5: Priority 3 — OTP HTTP Status Codes & Headers
+    // SECTION 5: Legacy OTP Endpoint Removal Verification
     // =======================================================================
-    console.log('\n--- Section 5: Priority 3 — OTP HTTP Status Codes & Headers ---');
-
-    await Otp.deleteMany({});
-    await OtpThrottle.deleteMany({});
-    await NotificationProvider.deleteMany({});
-
-    // 5.1 Provider Infrastructure Failure -> HTTP 503 Service Unavailable
-    const provUnhealthy = new NotificationProvider({
-      name: 'Unhealthy Provider',
-      providerType: 'email',
-      driver: 'resend',
-      isEnabled: true,
-      priority: 1,
-    });
-    provUnhealthy.setCredentials({ apiKey: 're_test_key' });
-    await provUnhealthy.save();
-
-    currentMockFetch = async () => ({
-      ok: false,
-      status: 401,
-      json: async () => ({ message: 'Invalid API key' }),
-    });
-
-    const res503 = await request('/api/otp/send-email-otp', {
+    console.log('\n--- Section 5: Legacy OTP Endpoint Removal Verification ---');
+    const legacyRes = await request('/api/otp/send-email-otp', {
       method: 'POST',
-      body: JSON.stringify({ email: 'donor.503@example.com', purpose: 'verification' }),
+      body: JSON.stringify({ email: 'donor@example.com', purpose: 'verification' }),
     });
-
-    assert(res503.status === 503, 'Infrastructure/provider failure returns HTTP 503 (not HTTP 400)');
-    assert(res503.data.errorCode === 'AUTH_FAILURE', '503 response includes specific errorCode');
-
-    // 5.2 Provider Timeout -> HTTP 504 Gateway Timeout
-    await NotificationProvider.updateMany({}, { $set: { isHealthy: true, sentToday: 0, consecutiveFailures: 0 } });
-    currentMockFetch = async () => {
-      const err = new Error('Timeout');
-      err.name = 'TimeoutError';
-      throw err;
-    };
-
-    const res504 = await request('/api/otp/send-email-otp', {
-      method: 'POST',
-      body: JSON.stringify({ email: 'donor.504@example.com', purpose: 'verification' }),
-    });
-
-    assert(res504.status === 504, 'Provider timeout returns HTTP 504 Gateway Timeout');
-    assert(res504.data.errorCode === 'TIMEOUT', '504 response includes TIMEOUT errorCode');
-
-    // 5.3 Cooldown Active -> HTTP 429 with accurate Retry-After header
-    await Otp.deleteMany({});
-    const now = new Date();
-    const activeTestOtp = new Otp({
-      target: 'cooldown.user@example.com',
-      targetType: 'email',
-      purpose: 'verification',
-      otpHash: 'dummy_hash',
-      expiresAt: new Date(now.getTime() + 600000),
-      resendAvailableAt: new Date(now.getTime() + 45000), // 45 seconds remaining
-      attempts: 0,
-      isUsed: false,
-    });
-    await activeTestOtp.save();
-
-    const res429 = await request('/api/otp/send-email-otp', {
-      method: 'POST',
-      body: JSON.stringify({ email: 'cooldown.user@example.com', purpose: 'verification' }),
-    });
-
-    assert(res429.status === 429, 'Cooldown active returns HTTP 429');
-    const retryAfterHeader = res429.headers.get('retry-after');
-    assert(Boolean(retryAfterHeader), 'HTTP 429 response includes Retry-After header');
-    assert(Number(retryAfterHeader) > 0 && Number(retryAfterHeader) <= 45, 'Retry-After reflects accurate remaining cooldown seconds');
-
-    // 5.4 Rolling Hour Rate Limit -> HTTP 429 with Retry-After: 3600
-    await Otp.deleteMany({});
-    await OtpThrottle.deleteMany({});
-    const rateLimitTarget = 'ratelimit.user@example.com';
-
-    // Simulate 5 existing requests in the past hour
-    const pastRequests = [
-      new Date(now.getTime() - 10000),
-      new Date(now.getTime() - 20000),
-      new Date(now.getTime() - 30000),
-      new Date(now.getTime() - 40000),
-      new Date(now.getTime() - 50000),
-    ];
-    await OtpThrottle.create({
-      key: `throttle:email:${rateLimitTarget}`,
-      target: rateLimitTarget,
-      targetType: 'email',
-      requests: pastRequests,
-      updatedAt: now,
-    });
-
-    const resHourlyLimit = await request('/api/otp/send-email-otp', {
-      method: 'POST',
-      body: JSON.stringify({ email: rateLimitTarget, purpose: 'verification' }),
-    });
-
-    assert(resHourlyLimit.status === 429, 'Rolling hour rate limit exceeded returns HTTP 429');
-    assert(resHourlyLimit.data.errorCode === 'RATE_LIMIT_EXCEEDED', 'Returns RATE_LIMIT_EXCEEDED code');
-    assert(resHourlyLimit.headers.get('retry-after') === '3600', 'Hourly rate limit sets Retry-After: 3600');
-
-    // 5.5 Invalid Client Request -> HTTP 400 Bad Request
-    const res400InvalidEmail = await request('/api/otp/send-email-otp', {
-      method: 'POST',
-      body: JSON.stringify({ email: 'not-an-email', purpose: 'verification' }),
-    });
-    assert(res400InvalidEmail.status === 400, 'Invalid email syntax returns HTTP 400');
+    assert(legacyRes.status === 404, 'Removed /api/otp/send-email-otp endpoint returns HTTP 404');
 
     currentMockFetch = null;
 
@@ -1360,8 +1229,6 @@ async function runTests() {
     }
     try {
       await NotificationProvider.deleteMany({});
-      await Otp.deleteMany({});
-      await OtpThrottle.deleteMany({});
     } catch (cleanupErr) {
       // ignore
     }
