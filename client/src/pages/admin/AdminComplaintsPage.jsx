@@ -191,19 +191,29 @@ export default function AdminComplaintsPage() {
                       {c.category}
                     </td>
                     <td className="py-3.5 px-4 text-zinc-700 dark:text-zinc-300">
-                      <div className="font-semibold">{c.hospital?.name || 'Hospital'}</div>
-                      <div className="text-[10px] text-zinc-400">{c.hospital?.city}</div>
+                      <div className="font-semibold">{c.hospital?.name || c.bloodRequest?.hospitalName || 'Hospital'}</div>
+                      <div className="text-[10px] text-zinc-400">{c.hospital?.city || c.bloodRequest?.city || ''}</div>
                     </td>
                     <td className="py-3.5 px-4 text-zinc-700 dark:text-zinc-300">
-                      <div>{c.patient?.name || 'Patient'}</div>
-                      <div className="text-[10px] text-zinc-400 font-mono">Reg: {c.patient?.hospitalRegistrationNumber || 'N/A'}</div>
+                      <div>{c.patient?.name || c.bloodRequest?.recipientName || 'Recipient'}</div>
+                      <div className="text-[10px] text-zinc-400 font-mono">
+                        {c.patient ? `Reg: ${c.patient.hospitalRegistrationNumber || 'N/A'}` : 'Direct Request'}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="font-medium text-zinc-900 dark:text-zinc-100">
                         {c.complainant?.fullName || 'Anonymous'}
                       </div>
                       <div className="text-[10px] text-zinc-400 capitalize">
-                        {c.complainantType === 'family_member' ? 'Family Member' : 'Patient'}
+                        {c.complainantType === 'family_member'
+                          ? 'Family Member'
+                          : c.complainantType === 'donor'
+                          ? 'Donor'
+                          : c.complainantType === 'recipient'
+                          ? 'Recipient'
+                          : c.complainantType === 'public'
+                          ? 'Public'
+                          : 'Patient'}
                       </div>
                     </td>
                     <td className="py-3.5 px-4">

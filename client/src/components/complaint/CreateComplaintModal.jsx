@@ -24,9 +24,14 @@ export default function CreateComplaintModal({
 }) {
   const { user } = useAuth();
   const isDonor = user?.role === 'donor';
+  const resolvedPatientId = patient?.id || patient?._id || bloodRequest?.patient || null;
+  const resolvedHospitalId = bloodRequest?.hospital?._id || bloodRequest?.hospital || null;
+  const hasLinkedPatient = Boolean(resolvedPatientId);
 
   const [category, setCategory] = useState(isDonor ? 'Hospital did not respond after donor acceptance' : '');
-  const [complainantType, setComplainantType] = useState(isDonor ? 'donor' : 'patient');
+  const [complainantType, setComplainantType] = useState(
+    isDonor ? 'donor' : hasLinkedPatient ? 'patient' : 'recipient'
+  );
   const [familyRelationship, setFamilyRelationship] = useState('');
   const [description, setDescription] = useState('');
   const [evidenceUrl, setEvidenceUrl] = useState('');
@@ -60,8 +65,8 @@ export default function CreateComplaintModal({
     try {
       const payload = {
         requestId: bloodRequest.id || bloodRequest._id,
-        patientId: patient?.id || patient?._id || bloodRequest.patient,
-        hospitalId: bloodRequest.hospital?._id || bloodRequest.hospital,
+        ...(resolvedPatientId ? { patientId: resolvedPatientId } : {}),
+        ...(resolvedHospitalId ? { hospitalId: resolvedHospitalId } : {}),
         complainantType,
         familyRelationship: complainantType === 'family_member' ? familyRelationship.trim() : undefined,
         category,
@@ -135,6 +140,10 @@ export default function CreateComplaintModal({
             {isDonor ? (
               <div className="p-2.5 rounded-xl border border-[#A61B2B] bg-red-50/50 dark:bg-red-950/20 text-[#A61B2B] dark:text-red-300 text-xs font-semibold text-center">
                 Submitting as Voluntary Donor
+              </div>
+            ) : !hasLinkedPatient ? (
+              <div className="p-2.5 rounded-xl border border-[#A61B2B] bg-red-50/50 dark:bg-red-950/20 text-[#A61B2B] dark:text-red-300 text-xs font-semibold text-center">
+                Submitting as Request Owner / Recipient
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 text-xs">
