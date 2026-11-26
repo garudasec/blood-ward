@@ -34,8 +34,8 @@ export const createComplaint = async (req, res, next) => {
       evidenceUrls,
     } = req.body;
 
-    if (!complainantType || !['patient', 'family_member', 'donor'].includes(complainantType)) {
-      return next(new AppError("Complainant type must be 'patient', 'family_member', or 'donor'.", 400));
+    if (!complainantType || !['patient', 'family_member', 'recipient', 'donor'].includes(complainantType)) {
+      return next(new AppError("Complainant type must be 'patient', 'family_member', 'recipient', or 'donor'.", 400));
     }
 
     if (!category || !ALLOWED_CATEGORIES.includes(category)) {
@@ -59,55 +59,60 @@ export const createComplaint = async (req, res, next) => {
       return next(new AppError('Referenced blood request not found.', 404));
     }
 
-    // Resolve Patient document
+    // Resolve Patient document (optional for recipient-created requests without a Patient record)
     let patient = null;
     if (patientId) {
+      const cleanPatientId = String(patientId).trim();
       patient = await Patient.findOne({
         $or: [
-          { _id: patientId.match(/^[0-9a-fA-F]{24}$/) ? patientId : null },
-          { patientId: patientId.trim().toUpperCase() },
+          { _id: cleanPatientId.match(/^[0-9a-fA-F]{24}$/) ? cleanPatientId : null },
+          { patientId: cleanPatientId.toUpperCase() },
         ],
       });
+      if (!patient) {
+        return next(new AppError('Referenced patient record not found.', 404));
+      }
     } else if (bloodRequest.patient) {
       patient = await Patient.findById(bloodRequest.patient);
     }
 
-    if (!patient) {
-      return next(new AppError('Referenced patient record not found.', 404));
-    }
-
-    // Resolve Hospital document
+    // Resolve Hospital document (optional for recipient-created requests without a Hospital record)
     let hospital = null;
     if (hospitalId) {
+      const cleanHospitalId = String(hospitalId).trim();
       hospital = await Hospital.findOne({
         $or: [
-          { _id: hospitalId.match(/^[0-9a-fA-F]{24}$/) ? hospitalId : null },
-          { hospitalId: hospitalId.trim().toUpperCase() },
+          { _id: cleanHospitalId.match(/^[0-9a-fA-F]{24}$/) ? cleanHospitalId : null },
+          { hospitalId: cleanHospitalId.trim().toUpperCase() },
         ],
       });
+      if (!hospital) {
+        return next(new AppError('Referenced hospital entity not found.', 404));
+      }
     } else if (bloodRequest.hospital) {
       hospital = await Hospital.findById(bloodRequest.hospital);
     }
 
-    if (!hospital) {
-      return next(new AppError('Referenced hospital entity not found.', 404));
-    }
-
-    // Verify backend relationship consistency
-    if (bloodRequest.patient && bloodRequest.patient.toString() !== patient._id.toString()) {
+    // Verify backend relationship consistency when Patient/Hospital exist
+    if (patient && bloodRequest.patient && bloodRequest.patient.toString() !== patient._id.toString()) {
       return next(new AppError('The referenced blood request does not match the specified patient.', 400));
     }
 
-    if (bloodRequest.hospital && bloodRequest.hospital.toString() !== hospital._id.toString()) {
+    if (hospital && bloodRequest.hospital && bloodRequest.hospital.toString() !== hospital._id.toString()) {
       return next(new AppError('The referenced blood request does not match the specified hospital.', 400));
     }
 
     // Authorization checks
     const isAdmin = req.user.role === 'admin';
     const isDonor = req.user.role === 'donor';
-    const isPatient = patient.claimedByUser && patient.claimedByUser.toString() === req.user._id.toString();
-    const isApprovedFamily = patient.familyAccess && patient.familyAccess.some(
-      (fa) => fa.user && fa.user.toString() === req.user._id.toString() && fa.status === 'approved'
+    const isRequestOwner = bloodRequest.recipient && bloodRequest.recipient.toString() === req.user._id.toString();
+    const isPatient = Boolean(patient && patient.claimedByUser && patient.claimedByUser.toString() === req.user._id.toString());
+    const isApprovedFamily = Boolean(
+      patient &&
+      patient.familyAccess &&
+      patient.familyAccess.some(
+        (fa) => fa.user && fa.user.toString() === req.user._id.toString() && fa.status === 'approved'
+      )
     );
 
     if (!isAdmin) {
@@ -123,10 +128,23 @@ export const createComplaint = async (req, res, next) => {
         if (!isAssociatedDonor) {
           return next(new AppError('You are not associated with this blood request as a donor.', 403));
         }
-      } else if (complainantType === 'patient' && !isPatient) {
-        return next(new AppError('You are not authorized to submit a complaint as the primary patient for this record.', 403));
-      } else if (complainantType === 'family_member' && !isApprovedFamily) {
-        return next(new AppError('You must have approved family access for this patient record before submitting a complaint.', 403));
+      } else if (complainantType === 'family_member') {
+        if (!isApprovedFamily) {
+          return next(new AppError('You must have approved family access for this patient record before submitting a complaint.', 403));
+        }
+      } else if (complainantType === 'recipient') {
+        if (!isRequestOwner) {
+          return next(new AppError('You are not authorized to submit a complaint for this blood request.', 403));
+        }
+      } else if (complainantType === 'patient') {
+        // If a hospital Patient record exists, enforce claimed patient ownership; otherwise allow the individual request owner.
+        if (patient) {
+          if (!isPatient) {
+            return next(new AppError('You are not authorized to submit a complaint as the primary patient for this record.', 403));
+          }
+        } else if (!isRequestOwner) {
+          return next(new AppError('You are not authorized to submit a complaint for this blood request.', 403));
+        }
       }
     }
 
@@ -145,8 +163,8 @@ export const createComplaint = async (req, res, next) => {
 
     const newComplaint = await Complaint.create({
       complaintId,
-      patient: patient._id,
-      hospital: hospital._id,
+      patient: patient ? patient._id : null,
+      hospital: hospital ? hospital._id : null,
       bloodRequest: bloodRequest._id,
       complainant: req.user._id,
       complainantType,
@@ -157,6 +175,8 @@ export const createComplaint = async (req, res, next) => {
       status: 'Submitted',
     });
 
+    const hospitalLabel = hospital?.name || bloodRequest.hospitalName || 'Hospital';
+
     await logAuditEvent({
       actor: req.user._id,
       actorName: req.user.fullName,
@@ -165,7 +185,7 @@ export const createComplaint = async (req, res, next) => {
       target: newComplaint._id.toString(),
       ipAddress: req.ip,
       severity: 'HIGH',
-      details: `Complaint ${complaintId} filed by ${req.user.fullName} (${complainantType}) against hospital ${hospital.name} for request ${bloodRequest._id}.`,
+      details: `Complaint ${complaintId} filed by ${req.user.fullName} (${complainantType}) against ${hospitalLabel} for request ${bloodRequest._id}.`,
     });
 
     notifyAdminsOfNewComplaint(newComplaint).catch((err) => {
@@ -190,16 +210,19 @@ export const createComplaint = async (req, res, next) => {
  */
 export const createPublicComplaint = async (req, res, next) => {
   try {
-    const { patientId, hospitalId, category, description, contactEmail } = req.body;
+    const {
+      patientId,
+      hospitalId,
+      requestReferenceId,
+      requestId,
+      hospitalName,
+      category,
+      description,
+      contactEmail,
+    } = req.body;
 
-    // Validate presence and types
-    if (!patientId || typeof patientId !== 'string' || !patientId.trim()) {
-      return next(new AppError('Patient ID is required.', 400));
-    }
-
-    if (!hospitalId || typeof hospitalId !== 'string' || !hospitalId.trim()) {
-      return next(new AppError('Hospital ID is required.', 400));
-    }
+    const rawRefId = requestReferenceId || requestId;
+    const isRequestRefMode = Boolean(rawRefId && String(rawRefId).trim());
 
     if (!description || typeof description !== 'string' || description.trim().length < 20) {
       return next(new AppError('Complaint description must be at least 20 characters long.', 400));
@@ -220,41 +243,92 @@ export const createPublicComplaint = async (req, res, next) => {
       }
     }
 
-    // Sanitize and query identifiers
-    const cleanPatientId = String(patientId).trim();
-    const cleanHospitalId = String(hospitalId).trim();
+    let linkedPatient = null;
+    let linkedHospital = null;
+    let linkedBloodRequest = null;
+    let auditTargetDesc = '';
 
-    const patientQuery = cleanPatientId.match(/^[0-9a-fA-F]{24}$/)
-      ? { _id: cleanPatientId }
-      : { patientId: cleanPatientId.toUpperCase() };
+    if (isRequestRefMode) {
+      if (!hospitalName || typeof hospitalName !== 'string' || !hospitalName.trim()) {
+        return next(new AppError('Hospital name is required to verify the Request Reference ID.', 400));
+      }
 
-    const hospitalQuery = cleanHospitalId.match(/^[0-9a-fA-F]{24}$/)
-      ? { _id: cleanHospitalId }
-      : { hospitalId: cleanHospitalId.toUpperCase() };
+      // Allow pasting either raw 24-char ObjectId or "REF #<id>"
+      const cleanRefId = String(rawRefId).trim().replace(/^REF\s*#?/i, '').replace(/^#/, '').trim();
+      const GENERIC_REQ_ERROR = 'Invalid Request Reference ID or hospital verification details. Please check your identifiers.';
 
-    const [patient, hospital] = await Promise.all([
-      Patient.findOne(patientQuery),
-      Hospital.findOne(hospitalQuery),
-    ]);
+      if (!/^[0-9a-fA-F]{24}$/.test(cleanRefId)) {
+        return next(new AppError(GENERIC_REQ_ERROR, 400));
+      }
 
-    // Anti-enumeration security: return generic message if patient/hospital missing or mismatched
-    const GENERIC_ERROR_MSG = 'Invalid Patient ID, Hospital ID, or hospital association. Please verify your identifiers.';
+      linkedBloodRequest = await BloodRequest.findById(cleanRefId);
+      if (!linkedBloodRequest) {
+        return next(new AppError(GENERIC_REQ_ERROR, 400));
+      }
 
-    if (!patient || !hospital) {
-      return next(new AppError(GENERIC_ERROR_MSG, 400));
-    }
+      const expectedHospital = (linkedBloodRequest.hospitalName || '').trim().toLowerCase();
+      const providedHospital = hospitalName.trim().toLowerCase();
+      if (!expectedHospital || expectedHospital !== providedHospital) {
+        return next(new AppError(GENERIC_REQ_ERROR, 400));
+      }
 
-    if (!patient.hospital || patient.hospital.toString() !== hospital._id.toString()) {
-      return next(new AppError(GENERIC_ERROR_MSG, 400));
+      if (linkedBloodRequest.patient) {
+        linkedPatient = await Patient.findById(linkedBloodRequest.patient);
+      }
+      if (linkedBloodRequest.hospital) {
+        linkedHospital = await Hospital.findById(linkedBloodRequest.hospital);
+      }
+
+      auditTargetDesc = `request ${linkedBloodRequest._id} (${linkedHospital?.name || linkedBloodRequest.hospitalName})`;
+    } else {
+      // Legacy Patient ID + Hospital ID mode
+      if (!patientId || typeof patientId !== 'string' || !patientId.trim()) {
+        return next(new AppError('Patient ID is required.', 400));
+      }
+
+      if (!hospitalId || typeof hospitalId !== 'string' || !hospitalId.trim()) {
+        return next(new AppError('Hospital ID is required.', 400));
+      }
+
+      const cleanPatientId = String(patientId).trim();
+      const cleanHospitalId = String(hospitalId).trim();
+
+      const patientQuery = cleanPatientId.match(/^[0-9a-fA-F]{24}$/)
+        ? { _id: cleanPatientId }
+        : { patientId: cleanPatientId.toUpperCase() };
+
+      const hospitalQuery = cleanHospitalId.match(/^[0-9a-fA-F]{24}$/)
+        ? { _id: cleanHospitalId }
+        : { hospitalId: cleanHospitalId.toUpperCase() };
+
+      const [patient, hospital] = await Promise.all([
+        Patient.findOne(patientQuery),
+        Hospital.findOne(hospitalQuery),
+      ]);
+
+      // Anti-enumeration security: return generic message if patient/hospital missing or mismatched
+      const GENERIC_ERROR_MSG = 'Invalid Patient ID, Hospital ID, or hospital association. Please verify your identifiers.';
+
+      if (!patient || !hospital) {
+        return next(new AppError(GENERIC_ERROR_MSG, 400));
+      }
+
+      if (!patient.hospital || patient.hospital.toString() !== hospital._id.toString()) {
+        return next(new AppError(GENERIC_ERROR_MSG, 400));
+      }
+
+      linkedPatient = patient;
+      linkedHospital = hospital;
+      auditTargetDesc = `hospital ${hospital.name} for patient ${patient.patientId}`;
     }
 
     const complaintId = await generateComplaintId();
 
     const newComplaint = await Complaint.create({
       complaintId,
-      patient: patient._id,
-      hospital: hospital._id,
-      bloodRequest: null,
+      patient: linkedPatient ? linkedPatient._id : null,
+      hospital: linkedHospital ? linkedHospital._id : null,
+      bloodRequest: linkedBloodRequest ? linkedBloodRequest._id : null,
       complainant: null,
       complainantType: 'public',
       contactEmail: contactEmail ? contactEmail.trim().toLowerCase() : '',
@@ -271,7 +345,7 @@ export const createPublicComplaint = async (req, res, next) => {
       target: newComplaint._id.toString(),
       ipAddress: req.ip,
       severity: 'NORMAL',
-      details: `Public complaint ${complaintId} submitted against hospital ${hospital.name} for patient ${patient.patientId}.`,
+      details: `Public complaint ${complaintId} submitted against ${auditTargetDesc}.`,
     });
 
     notifyAdminsOfNewComplaint(newComplaint).catch((err) => {
@@ -299,7 +373,7 @@ export const getMyComplaints = async (req, res, next) => {
     const complaints = await Complaint.find({ complainant: req.user._id })
       .populate('patient', 'patientId name bloodGroup hospitalRegistrationNumber')
       .populate('hospital', 'hospitalId name city')
-      .populate('bloodRequest', 'bloodGroup unitsNeeded status requiredDate hospitalName')
+      .populate('bloodRequest', 'bloodGroup unitsNeeded status requiredDate hospitalName city recipientName')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -390,7 +464,7 @@ export const getAdminComplaints = async (req, res, next) => {
     const complaints = await Complaint.find(query)
       .populate('patient', 'patientId name bloodGroup hospitalRegistrationNumber')
       .populate('hospital', 'hospitalId name city')
-      .populate('bloodRequest', 'bloodGroup unitsNeeded status requiredDate hospitalName')
+      .populate('bloodRequest', 'bloodGroup unitsNeeded status requiredDate hospitalName city recipientName')
       .populate('complainant', 'fullName email phone')
       .sort({ createdAt: -1 })
       .skip(skip)
