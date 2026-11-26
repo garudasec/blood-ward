@@ -3,15 +3,11 @@ import { connectTestDB } from './testDb.js';
 import {
   encrypt,
   decrypt,
-  hashOtp,
-  verifyOtpHash,
   maskPhoneNumber,
   maskEmail,
   getEncryptionKey,
-  getOtpHmacKey,
 } from '../utils/encryptionUtils.js';
 import NotificationProvider from '../models/notificationProvider.model.js';
-import Otp from '../models/otp.model.js';
 import NotificationLog, { sanitizeAndRedact } from '../models/notificationLog.model.js';
 
 let passed = 0;
@@ -37,7 +33,6 @@ async function runTests() {
 
   // Clean test collections before running
   await NotificationProvider.deleteMany({});
-  await Otp.deleteMany({});
   await NotificationLog.deleteMany({});
 
   // ----------------------------------------------------
@@ -114,132 +109,52 @@ async function runTests() {
     process.env.ENCRYPTION_SECRET = originalSecret;
   }
 
-  // ----------------------------------------------------
-  // SECTION 1B: HMAC-SHA256 OTP Hashing & Validation
-  // ----------------------------------------------------
-  console.log('\n--- Section 1B: HMAC-SHA256 OTP Hashing & Validation ---');
-
   const testPhone = '+919876543210';
   const testEmail = 'donor@bloodward.com';
-  const rawOtp = '482910';
 
-  // Test 1.5: HMAC-SHA256 generation bound to target & purpose
-  const hmacHash = hashOtp({ target: testPhone, purpose: 'verification', rawOtp });
-  assert(
-    hmacHash && hmacHash.length === 64 && hmacHash !== rawOtp,
-    'hashOtp() returns valid 64-character HMAC-SHA256 hex string'
-  );
-
-  // Test 1.6: Target binding (same OTP for different targets produces different hashes)
-  const hmacHashOtherPhone = hashOtp({ target: '+919876543211', purpose: 'verification', rawOtp });
-  assert(
-    hmacHash !== hmacHashOtherPhone,
-    'hashOtp() binds target: different targets with identical OTP produce different hashes'
-  );
-
-  // Test 1.7: Purpose binding (same OTP for different purposes produces different hashes)
-  const hmacHashReset = hashOtp({ target: testPhone, purpose: 'password_reset', rawOtp });
-  assert(
-    hmacHash !== hmacHashReset,
-    'hashOtp() binds purpose: verification vs password_reset produce different hashes'
-  );
-
-  // Test 1.8: Timing-safe OTP verification
-  assert(
-    verifyOtpHash({ target: testPhone, purpose: 'verification', candidateOtp: '482910', storedHash: hmacHash }) === true,
-    'verifyOtpHash() returns true for matching candidate'
-  );
-  assert(
-    verifyOtpHash({ target: testPhone, purpose: 'verification', candidateOtp: '482911', storedHash: hmacHash }) === false,
-    'verifyOtpHash() returns false for incorrect candidate OTP'
-  );
-  assert(
-    verifyOtpHash({ target: testPhone, purpose: 'verification', candidateOtp: '', storedHash: hmacHash }) === false,
-    'verifyOtpHash() safely rejects empty candidate'
-  );
-
-  // Test 1.9: Secret validation for OTP_HMAC_SECRET
-  const originalHmacSecret = process.env.OTP_HMAC_SECRET;
-  try {
-    delete process.env.OTP_HMAC_SECRET;
-    let missingHmacError = false;
-    try {
-      getOtpHmacKey();
-    } catch (err) {
-      missingHmacError = err.message.includes('missing or shorter than 32 characters');
-    }
-    assert(missingHmacError, 'getOtpHmacKey() rejects missing OTP_HMAC_SECRET without fallback');
-
-    process.env.OTP_HMAC_SECRET = 'short_hmac_secret';
-    let weakHmacError = false;
-    try {
-      getOtpHmacKey();
-    } catch (err) {
-      weakHmacError = err.message.includes('missing or shorter than 32 characters');
-    }
-    assert(weakHmacError, 'getOtpHmacKey() rejects weak (<32 char) OTP_HMAC_SECRET');
-  } finally {
-    process.env.OTP_HMAC_SECRET = originalHmacSecret;
-  }
-
-  // Test 1.10: Secret rotation considerations
-  // If the server HMAC secret rotates, old OTP hash safely fails verification instead of throwing
-  try {
-    process.env.OTP_HMAC_SECRET = 'rotated_secret_key_abcdef1234567890abcdef1234567890';
-    const verifyAfterRotation = verifyOtpHash({
-      target: testPhone,
-      purpose: 'verification',
-      candidateOtp: '482910',
-      storedHash: hmacHash,
-    });
-    assert(verifyAfterRotation === false, 'verifyOtpHash() safely returns false if HMAC secret was rotated');
-  } finally {
-    process.env.OTP_HMAC_SECRET = originalHmacSecret;
-  }
-
-  // Test 1.11: Masking utilities
-  assert(maskPhoneNumber('+919876543210') === '+9198*** ***10', 'maskPhoneNumber() masks Indian phone correctly');
+  // Test 1.5: Masking utilities
+  assert(maskPhoneNumber(testPhone) === '+9198*** ***10', 'maskPhoneNumber() masks Indian phone correctly');
   assert(maskEmail('support@bloodward.com') === 's***t@bloodward.com', 'maskEmail() masks standard email correctly');
 
   // ----------------------------------------------------
-  // SECTION 2: NotificationProvider Model Tests
+  // SECTION 2: NotificationProvider Model Tests (Email Drivers)
   // ----------------------------------------------------
   console.log('\n--- Section 2: NotificationProvider Model Tests ---');
 
-  const textBeeProvider = new NotificationProvider({
-    providerType: 'sms',
-    driver: 'textbee',
-    name: 'Primary TextBee Gateway',
+  const resendProvider = new NotificationProvider({
+    providerType: 'email',
+    driver: 'resend',
+    name: 'Primary Resend Gateway',
     priority: 1,
     dailyLimit: 300,
   });
 
-  textBeeProvider.setCredentials({
-    apiKey: 'textbee_test_secret_key_888',
-    deviceId: '64fa1b2c3d4e5f6a7b8c9d0e',
+  resendProvider.setCredentials({
+    apiKey: 're_test_secret_key_888',
+    senderAddress: 'BloodWard <noreply@bloodward.com>',
   });
 
-  await textBeeProvider.save();
+  await resendProvider.save();
 
-  assert(Boolean(textBeeProvider._id), 'NotificationProvider (TextBee) successfully created and saved');
+  assert(Boolean(resendProvider._id), 'NotificationProvider (Resend) successfully created and saved');
   assert(
-    textBeeProvider.configSummary.hasApiKey === true &&
-    textBeeProvider.configSummary.deviceId.includes('...'),
+    resendProvider.configSummary.hasApiKey === true &&
+    resendProvider.configSummary.senderAddress === 'BloodWard <noreply@bloodward.com>',
     'Provider stores safe masked configSummary'
   );
 
-  const fetchedProvider = await NotificationProvider.findById(textBeeProvider._id);
+  const fetchedProvider = await NotificationProvider.findById(resendProvider._id);
   assert(fetchedProvider.encryptedCredentials === undefined, 'encryptedCredentials is excluded from default queries');
 
   const jsonSerialized = JSON.parse(JSON.stringify(fetchedProvider));
   assert(jsonSerialized.encryptedCredentials === undefined, 'toJSON() strips encryptedCredentials');
   assert(jsonSerialized.credentials === undefined, 'toJSON() strips raw credentials');
 
-  const providerWithSecret = await NotificationProvider.findById(textBeeProvider._id).select('+encryptedCredentials');
+  const providerWithSecret = await NotificationProvider.findById(resendProvider._id).select('+encryptedCredentials');
   const decryptedCredentials = providerWithSecret.getDecryptedCredentials();
   assert(
-    decryptedCredentials.apiKey === 'textbee_test_secret_key_888' &&
-    decryptedCredentials.deviceId === '64fa1b2c3d4e5f6a7b8c9d0e',
+    decryptedCredentials.apiKey === 're_test_secret_key_888' &&
+    decryptedCredentials.senderAddress === 'BloodWard <noreply@bloodward.com>',
     'getDecryptedCredentials() successfully decrypts stored credentials'
   );
 
@@ -280,59 +195,15 @@ async function runTests() {
   }
   assert(invalidDriverCaught, 'Pre-validate hook rejects mismatched providerType and driver');
 
-  assert(textBeeProvider.hasQuotaAvailable() === true, 'hasQuotaAvailable() returns true when sentToday < dailyLimit');
-  textBeeProvider.sentToday = 300;
-  assert(textBeeProvider.hasQuotaAvailable() === false, 'hasQuotaAvailable() returns false when quota exhausted');
+  assert(resendProvider.hasQuotaAvailable() === true, 'hasQuotaAvailable() returns true when sentToday < dailyLimit');
+  resendProvider.sentToday = 300;
+  assert(resendProvider.hasQuotaAvailable() === false, 'hasQuotaAvailable() returns false when quota exhausted');
 
   // ----------------------------------------------------
-  // SECTION 3: Otp Model Tests
+  // SECTION 3: Legacy Otp Model Removal Check
   // ----------------------------------------------------
-  console.log('\n--- Section 3: Otp Model Tests ---');
-
-  const plainOtp = '654321';
-  const hashedOtp = hashOtp({ target: testPhone, purpose: 'verification', rawOtp: plainOtp });
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 mins
-  const resendAvailableAt = new Date(now.getTime() + 60 * 1000); // 60s cooldown
-
-  const otpDoc = new Otp({
-    target: testPhone,
-    targetType: 'phone',
-    purpose: 'verification',
-    otpHash: hashedOtp,
-    expiresAt,
-    resendAvailableAt,
-  });
-
-  await otpDoc.save();
-  assert(Boolean(otpDoc._id), 'Otp document created and saved successfully with HMAC hash');
-
-  const fetchedOtp = await Otp.findById(otpDoc._id);
-  assert(fetchedOtp.otpHash === undefined, 'otpHash is excluded from default queries');
-  const otpJson = JSON.parse(JSON.stringify(fetchedOtp));
-  assert(otpJson.otpHash === undefined, 'toJSON() strips otpHash');
-  assert(otpJson.otp === undefined, 'Plaintext otp does not exist on document');
-
-  const otpWithHash = await Otp.findById(otpDoc._id).select('+otpHash');
-  assert(otpWithHash.verify(plainOtp) === true, 'Otp.verify() returns true for matching OTP via HMAC');
-  assert(otpWithHash.verify('000000') === false, 'Otp.verify() returns false for incorrect OTP');
-
-  assert(otpDoc.isExpired() === false, 'isExpired() returns false for active OTP');
-  assert(otpDoc.isCooldownActive() === true, 'isCooldownActive() returns true within 60s cooldown');
-  assert(otpDoc.hasExceededMaxAttempts() === false, 'hasExceededMaxAttempts() returns false initially');
-
-  otpDoc.attempts = 3;
-  assert(otpDoc.hasExceededMaxAttempts() === true, 'hasExceededMaxAttempts() returns true when attempts >= 3');
-
-  otpDoc.isUsed = true;
-  otpDoc.usedAt = new Date();
-  await otpDoc.save();
-  const reloadedOtp = await Otp.findById(otpDoc._id);
-  assert(reloadedOtp.isUsed === true && Boolean(reloadedOtp.usedAt), 'Otp records single-use status');
-
-  const otpIndexes = await Otp.collection.indexes();
-  const ttlIndex = otpIndexes.find((idx) => idx.expireAfterSeconds === 0 && idx.key && idx.key.expiresAt === 1);
-  assert(Boolean(ttlIndex), 'Otp collection has valid TTL index on { expiresAt: 1 }');
+  console.log('\n--- Section 3: Legacy Otp Model Removal Check ---');
+  assert(!mongoose.models.Otp, 'Legacy Otp model is not registered (removed in c27bb91)');
 
   // ----------------------------------------------------
   // SECTION 4: NotificationLog Model & False-Positive Regression Tests

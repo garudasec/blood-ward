@@ -162,40 +162,30 @@ async function runTests() {
     }
 
     // ----------------------------------------------------
-    // TEST 3: Email Notifications with Required Subjects
+    // TEST 3: In-App Only Match Notifications (No Donation Emails) & Privacy
     // ----------------------------------------------------
-    const donorEmail = interceptedEmails.find((e) => e.to === testDonor.email);
-    if (donorEmail && donorEmail.subject === 'A compatible blood request has been found near you') {
-      pass('Donor email sent with subject: "A compatible blood request has been found near you"');
+    if (interceptedEmails.length === 0) {
+      pass('No donation match emails sent (in-app notifications only)');
     } else {
-      fail('Donor email subject', new Error(`Subject: ${donorEmail?.subject}`));
+      fail('Unexpected match emails', new Error(`Expected 0 emails, got ${interceptedEmails.length}`));
     }
 
-    if (donorEmail && donorEmail.html.includes('Test Match Hospital Visakhapatnam') && donorEmail.html.includes('O+')) {
-      pass('Donor email contains hospital, blood group, units and dashboard link');
+    if (donorInApp && donorInApp.message.includes('Test Match Hospital Visakhapatnam') && donorInApp.message.includes('O+')) {
+      pass('Donor in-app notification contains hospital, blood group, and units');
     } else {
-      fail('Donor email content', new Error('Missing required details in donor email'));
+      fail('Donor in-app content', new Error('Missing required details in donor in-app notification'));
     }
 
-    // Confirm donor email does not expose recipient personal phone
-    if (donorEmail && !donorEmail.html.includes(testRecipient.phone)) {
-      pass('Donor email does not disclose recipient private phone');
+    if (donorInApp && !donorInApp.message.includes(testRecipient.phone)) {
+      pass('Donor in-app notification does not disclose recipient private phone');
     } else {
-      fail('Donor email privacy leak', new Error('Recipient phone disclosed'));
+      fail('Donor notification privacy leak', new Error('Recipient phone disclosed'));
     }
 
-    const recipientEmail = interceptedEmails.find((e) => e.to === testRecipient.email);
-    if (recipientEmail && recipientEmail.subject === 'A potential donor match has been found') {
-      pass('Recipient email sent with subject: "A potential donor match has been found"');
+    if (recipientInApp && !recipientInApp.message.includes(testDonor.phone) && !recipientInApp.message.includes(testDonor.email)) {
+      pass('Recipient in-app notification protects donor privacy (no phone or email disclosed at initial match)');
     } else {
-      fail('Recipient email subject', new Error(`Subject: ${recipientEmail?.subject}`));
-    }
-
-    // Confirm recipient email does not expose donor personal phone or email
-    if (recipientEmail && !recipientEmail.html.includes(testDonor.phone) && !recipientEmail.html.includes(testDonor.email)) {
-      pass('Recipient email protects donor privacy (no phone or email disclosed at initial match)');
-    } else {
-      fail('Recipient email privacy leak', new Error('Donor phone or email disclosed prematurely'));
+      fail('Recipient notification privacy leak', new Error('Donor phone or email disclosed prematurely'));
     }
 
     // ----------------------------------------------------
@@ -259,10 +249,10 @@ async function runTests() {
     await new Promise((r) => setTimeout(r, 200));
 
     const acceptEmail = interceptedEmails.find((e) => e.to === testRecipient.email);
-    if (acceptEmail && acceptEmail.subject === 'Good news! A donor has accepted your blood request') {
-      pass('Recipient received email: "Good news! A donor has accepted your blood request"');
+    if (!acceptEmail) {
+      pass('No redundant acceptance email sent to recipient (in-app only)');
     } else {
-      fail('Recipient acceptance email', new Error(`Subject: ${acceptEmail?.subject}`));
+      fail('Unexpected recipient acceptance email', new Error(`Subject: ${acceptEmail?.subject}`));
     }
 
     const donorAcceptEmail = interceptedEmails.find((e) => e.to === testDonor.email);
@@ -363,17 +353,17 @@ async function runTests() {
     await new Promise((r) => setTimeout(r, 200));
 
     const donorCompleteEmail = interceptedEmails.find((e) => e.to === testDonor.email);
-    if (donorCompleteEmail && donorCompleteEmail.subject === 'Thank you for your life-saving blood donation') {
-      pass('Donor received email: "Thank you for your life-saving blood donation"');
+    if (!donorCompleteEmail) {
+      pass('No redundant completion email sent to donor (in-app only)');
     } else {
-      fail('Donor completion email', new Error(`Subject: ${donorCompleteEmail?.subject}`));
+      fail('Unexpected donor completion email', new Error(`Subject: ${donorCompleteEmail?.subject}`));
     }
 
     const recCompleteEmail = interceptedEmails.find((e) => e.to === testRecipient.email);
-    if (recCompleteEmail && recCompleteEmail.subject === 'Your BloodWard blood request has been completed') {
-      pass('Recipient received email: "Your BloodWard blood request has been completed"');
+    if (!recCompleteEmail) {
+      pass('No redundant completion email sent to recipient (in-app only)');
     } else {
-      fail('Recipient completion email', new Error(`Subject: ${recCompleteEmail?.subject}`));
+      fail('Unexpected recipient completion email', new Error(`Subject: ${recCompleteEmail?.subject}`));
     }
 
     // ----------------------------------------------------
